@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คลิสเพื่อประกอบการเบิกจ่ายหลังได้รับอนุมัติ - คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม ม.สงขลานครินทร์</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sritrang: '#5A3B82',
+                        sritrangHover: '#482d6a',
+                        sritrangLight: '#EDE7F6',
+                        creamBg: '#FAF8F5',
+                        navyCustom: '#1E3A8A',
+                        navyHover: '#172d6e'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts: Sarabun -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+        
+        * {
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        body {
+            background-color: #FAF8F5;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c5b4e3;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5A3B82;
+        }
+
+        /* Print Optimization for clean A4 printing */
+        @media print {
+            body {
+                background-color: white !important;
+                color: #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-area {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .expense-card-print {
+                display: none !important;
+            }
+            .expense-card-print.selected-expense-card {
+                display: block !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+                margin-bottom: 15px !important;
+                border: 1px solid #ccc !important;
+            }
+            .doc-row-item {
+                display: none !important;
+            }
+            .doc-row-item.checked-print-row {
+                display: table-row !important;
+            }
+            .print-checkbox-col {
+                display: none !important;
+            }
+            #printFooterInfo {
+                display: block !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            #printOfficerNoteSection.has-content {
+                display: block !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            .print-due-date-container {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col justify-between antialiased">
+
+    <!-- Header Section -->
+    <header class="bg-navyCustom text-white shadow-lg no-print sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-sritrang p-2.5 rounded-xl text-white font-black text-xl tracking-wider shadow border border-purple-300/30 flex items-center justify-center min-w-[50px]">
+                    PSU
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-tight">ระบบเช็คลิสเพื่อประกอบการเบิกจ่ายหลังได้รับอนุมัติ</h1>
+                    <p class="text-xs text-blue-200 font-light">คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยสงขลานครินทร์</p>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="flex items-center bg-navyHover/60 p-1 rounded-xl border border-blue-400/30 text-xs sm:text-sm">
+                <button type="button" onclick="switchTab('form')" id="btnTabForm" class="px-4 py-2 bg-sritrang text-white font-medium rounded-lg transition shadow-sm">
+                    📝 แบบฟอร์มเช็คลิส
+                </button>
+                <button type="button" onclick="switchTab('history')" id="btnTabHistory" class="px-4 py-2 text-blue-100 font-medium rounded-lg transition hover:text-white hover:bg-white/10">
+                    📊 รายงาน / ประวัติการบันทึก
+                </button>
+                <button type="button" onclick="switchTab('settings')" id="btnTabSettings" class="px-3 py-2 text-blue-200 font-medium rounded-lg transition hover:text-white hover:bg-white/10 flex items-center gap-1">
+                    ⚙️ ตั้งค่า
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-5xl mx-auto px-4 py-6 flex-grow w-full">
+        
+        <!-- ==================== TAB 1: FORM SECTION ==================== -->
+        <div id="sectionForm" class="bg-white rounded-2xl shadow-xl border border-purple-100 p-6 sm:p-10 print-area transition-all">
+            
+            <div class="text-center mb-8 border-b border-gray-200 pb-5">
+                <div class="inline-block px-3 py-1 bg-sritrangLight text-sritrang font-semibold rounded-full text-xs mb-2">
+                    คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-navyCustom">แบบแจ้งการแนบหลักฐานทางการเงินประกอบการเบิกจ่าย</h2>
+                <p class="text-gray-500 text-xs sm:text-sm mt-1">โปรดตรวจสอบและติ๊กเลือกรายการเอกสารหลักฐานให้ถูกต้องตามประเภทค่าใช้จ่าย</p>
+            </div>
+
+            <!-- Web App Connection Alert Banner -->
+            <div id="webAppNoticeBanner" class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs sm:text-sm flex items-start justify-between gap-3 no-print">
+                <div class="flex items-start gap-2.5">
+                    <span class="text-lg leading-none mt-0.5">💡</span>
+                    <div>
+                        <strong class="font-semibold">การเชื่อมต่อ Google Sheets:</strong> <span id="webAppStatusText">ยังไม่ได้ตั้งค่า Web App URL (ระบบจะบันทึกข้อมูลในความจำเบราว์เซอร์เท่านั้น)</span>
+                    </div>
+                </div>
+                <button type="button" onclick="switchTab('settings')" class="underline text-amber-900 font-semibold hover:text-sritrang whitespace-nowrap">ตั้งค่าตอนนี้</button>
+            </div>
+
+            <form id="checklistForm" onsubmit="event.preventDefault();" class="space-y-6">
+                
+                <!-- ส่วนที่ 1: ข้อมูลทั่วไป -->
+                <div class="bg-creamBg p-5 sm:p-6 rounded-xl border border-amber-100/80 shadow-sm space-y-4 no-print">
+                    <h3 class="text-base font-bold text-navyCustom flex items-center gap-2 border-b border-amber-200/60 pb-2">
+                        <span class="bg-navyCustom text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">1</span> 
+                        ข้อมูลการขออนุมัติเบิกจ่าย
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <!-- เลขที่ขออนุมัติ -->
+                        <div>
+                            <label for="approvalNo" class="block text-sm font-semibold text-gray-700 mb-1">
+                                เลขที่ขออนุมัติ <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="approvalNo" required placeholder="เช่น มอ 402.1/..." 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sritrang focus:border-sritrang focus:outline-none bg-white text-sm transition">
+                        </div>
+
+                        <!-- กำหนดส่งเอกสารเบิกจ่ายไม่เกินวันที่ -->
+                        <div id="dueDateWrapper">
+                            <label for="dueDate" class="block text-sm font-semibold text-gray-700 mb-1">
+                                กำหนดส่งเอกสารเบิกจ่ายไม่เกินวันที่ <span id="dueDateAsterisk" class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="dueDate" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sritrang focus:border-sritrang focus:outline-none bg-white text-sm transition">
+                        </div>
+
+                        <!-- ผู้ขออนุมัติ -->
+                        <div class="relative">
+                            <label for="requesterInput" class="block text-sm font-semibold text-gray-700 mb-1">
+                                ผู้ขออนุมัติ <span class="text-red-500">*</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <div class="relative w-full">
+                                    <input type="text" id="requesterInput" placeholder="พิมพ์ชื่อเพื่อค้นหา หรือเลือกจากรายการ..." autocomplete="off"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sritrang focus:border-sritrang focus:outline-none bg-white text-sm transition"
+                                        onfocus="showRequesterDropdown()" oninput="filterRequesters()" />
+                                    <div id="requesterDropdown" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto hidden divide-y divide-gray-100">
+                                        <!-- JS dynamic rendering -->
+                                    </div>
+                                </div>
+                                <button type="button" onclick="openAddRequesterModal()" class="bg-sritrang text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap hover:bg-sritrangHover transition shadow-sm flex items-center gap-1">
+                                    <span>+</span> เพิ่มชื่อ
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ผู้ตรวจเอกสาร -->
+                        <div>
+                            <label for="checkerSelect" class="block text-sm font-semibold text-gray-700 mb-1">
+                                ผู้ตรวจเอกสาร <span class="text-red-500">*</span>
+                            </label>
+                            <select id="checkerSelect" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sritrang focus:border-sritrang focus:outline-none bg-white text-sm transition">
+                                <option value="">-- เลือกผู้ตรวจเอกสาร --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ส่วนที่ 2: เลือกประเภทค่าใช้จ่าย -->
+                <div class="no-print space-y-3">
+                    <label class="block text-base font-bold text-navyCustom flex items-center gap-2">
+                        <span class="bg-navyCustom text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span>
+                        ประเภทค่าใช้จ่าย (เลือกได้มากกว่า 1 รายการ) <span class="text-red-500">*</span>
+                    </label>
+                    <div id="expenseTypesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Filled via JS -->
+                    </div>
+                </div>
+
+                <!-- ส่วนที่ 3: รายการเอกสารตามเงื่อนไข (Dynamic Checklists) -->
+                <div class="pt-4 border-t border-gray-200">
+                    <label class="block text-base font-bold text-navyCustom mb-3 no-print flex items-center gap-2">
+                        <span class="bg-navyCustom text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">3</span>
+                        รายการเอกสารหลักฐานที่ต้องแนบประกอบการเบิกจ่าย
+                    </label>
+                    <div id="dynamicChecklistsArea" class="space-y-6">
+                        <div class="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500 text-sm no-print">
+                            👈 กรุณาติ๊กเลือกประเภทค่าใช้จ่ายด้านบน เพื่อแสดงรายการเอกสารเช็คลิสที่ต้องแนบ
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ส่วนเพิ่มหมายเหตุเพิ่มเติม (สำหรับเจ้าหน้าที่) -->
+                <div class="pt-4 border-t border-gray-200 no-print">
+                    <label for="officerNote" class="block text-sm font-semibold text-navyCustom mb-1">
+                        หมายเหตุเพิ่มเติม (สำหรับเจ้าหน้าที่ตรวจเอกสาร / ผู้ยื่น)
+                    </label>
+                    <textarea id="officerNote" rows="3" placeholder="ระบุข้อความหมายเหตุเพิ่มเติม หรือคำแนะนำกรณีเอกสารไม่ครบถ้วน..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sritrang focus:border-sritrang focus:outline-none bg-white text-sm transition" oninput="updatePrintFooter()"></textarea>
+                </div>
+
+                <!-- ส่วนแสดงผลหมายเหตุตอน Print -->
+                <div id="printOfficerNoteSection" class="mt-4 pt-4 border-t border-gray-300 text-sm space-y-1 text-gray-800 hidden print:block">
+                    <p class="font-bold text-navyCustom">หมายเหตุเพิ่มเติม:</p>
+                    <p id="printOfficerNoteText" class="whitespace-pre-line text-gray-700 pl-4 border-l-2 border-purple-300">-</p>
+                </div>
+
+                <!-- ส่วนแสดงผลข้อมูลสรุปตอน Print (Print Footer) -->
+                <div id="printFooterInfo" class="mt-8 pt-6 border-t-2 border-navyCustom text-sm space-y-3 text-gray-800 hidden print:block">
+                    <div id="printDueDateContainer" class="print-due-date-container bg-purple-50 p-3 rounded-lg border border-purple-200">
+                        <p class="font-bold text-base text-navyCustom">
+                            📌 โปรดดำเนินการจัดส่งเอกสารเบิกจ่ายฉบับจริงไม่เกินวันที่: <span id="printDueDate" class="underline font-bold text-red-600 text-lg sm:ml-2">-</span>
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-6 mt-6 pt-4 border-t border-gray-300">
+                        <div class="space-y-1">
+                            <p><strong>ผู้ขออนุมัติ:</strong> <span id="printRequester" class="font-medium">-</span></p>
+                            <p><strong>เลขที่ขออนุมัติ:</strong> <span id="printApprovalNo" class="font-medium">-</span></p>
+                            <p><strong>ประเภทค่าใช้จ่าย:</strong> <span id="printExpenseTypes" class="font-medium">-</span></p>
+                        </div>
+                        <div class="space-y-1">
+                            <p><strong>ผู้ตรวจเอกสาร:</strong> <span id="printChecker" class="font-medium">-</span></p>
+                            <p><strong>วันที่พิมพ์เอกสาร:</strong> <span id="printDateCurrent" class="font-medium">-</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Signature Placeholder for Physical Signing -->
+                    <div class="grid grid-cols-2 gap-8 pt-12 mt-8 text-center text-xs">
+                        <div>
+                            <div class="border-b border-gray-400 w-48 mx-auto mb-2"></div>
+                            <p>(............................................................)</p>
+                            <p class="mt-1 font-semibold">ลายมือชื่อผู้ขออนุมัติ / ผู้ยื่นเอกสาร</p>
+                            <p>วันที่ ..... / ..... / ..........</p>
+                        </div>
+                        <div>
+                            <div class="border-b border-gray-400 w-48 mx-auto mb-2"></div>
+                            <p>(............................................................)</p>
+                            <p class="mt-1 font-semibold">ลายมือชื่อผู้ตรวจเอกสารการเบิกจ่าย</p>
+                            <p>วันที่ ..... / ..... / ..........</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 no-print">
+                    <button type="button" onclick="resetForm()" class="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition font-medium text-sm flex items-center justify-center gap-1.5">
+                        🔄 ล้างข้อมูล
+                    </button>
+                    <button type="button" onclick="saveRecord()" id="btnSaveRecord" class="px-6 py-2.5 bg-navyCustom text-white font-semibold rounded-lg hover:bg-navyHover transition shadow-md text-sm flex items-center justify-center gap-2">
+                        <span>💾 บันทึกข้อมูลเข้า Google Sheets</span>
+                    </button>
+                    <button type="button" onclick="generatePrintView()" class="px-6 py-2.5 bg-sritrang text-white font-semibold rounded-lg hover:bg-sritrangHover transition shadow-md text-sm flex items-center justify-center gap-2">
+                        <span>🖨 พิมพ์เอกสาร A4</span>
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+
+        <!-- ==================== TAB 2: HISTORY & REPORT SECTION ==================== -->
+        <div id="sectionHistory" class="bg-white rounded-2xl shadow-xl border border-purple-100 p-6 sm:p-8 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-200 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-navyCustom">รายงานและประวัติการบันทึกข้อมูล</h2>
+                    <p class="text-gray-500 text-xs sm:text-sm">รายการเช็คลิสที่เคยถูกบันทึกไว้ในระบบความจำของเครื่อง</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="exportHistoryCSV()" class="px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-medium hover:bg-emerald-800 transition flex items-center gap-1">
+                        📥 ส่งออก CSV
+                    </button>
+                    <button type="button" onclick="loadHistoryTable()" class="px-3 py-2 bg-sritrang text-white rounded-lg text-xs font-medium hover:bg-sritrangHover transition flex items-center gap-1">
+                        🔄 รีเฟรช
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-gray-200">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-sritrangLight text-navyCustom text-xs uppercase font-bold tracking-wider border-b border-purple-200">
+                            <th class="p-3">วันที่บันทึก</th>
+                            <th class="p-3">เลขที่ขออนุมัติ</th>
+                            <th class="p-3">ผู้ขออนุมัติ</th>
+                            <th class="p-3">ผู้ตรวจเอกสาร</th>
+                            <th class="p-3">ประเภทค่าใช้จ่าย</th>
+                            <th class="p-3 text-center">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-gray-200 text-sm">
+                        <!-- History rows dynamic -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 3: SETTINGS SECTION ==================== -->
+        <div id="sectionSettings" class="bg-white rounded-2xl shadow-xl border border-purple-100 p-6 sm:p-8 hidden">
+            <div class="border-b border-gray-200 pb-4 mb-6">
+                <h2 class="text-2xl font-bold text-navyCustom flex items-center gap-2">
+                    <span>⚙️</span> ตั้งค่าเชื่อมต่อ Google Apps Script Web App
+                </h2>
+                <p class="text-gray-500 text-xs sm:text-sm mt-1">กำหนด Web App URL เพื่อส่งข้อมูลไปบันทึกลงใน Google Sheets ของคณะฯ อัตโนมัติ</p>
+            </div>
+
+            <div class="space-y-6 max-w-3xl">
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-3">
+                    <label for="googleSheetUrlInput" class="block text-sm font-bold text-navyCustom">
+                        Google Apps Script Web App URL:
+                    </label>
+                    <input type="url" id="googleSheetUrlInput" placeholder="https://script.google.com/macros/s/AKfycbx.../exec" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-sritrang focus:outline-none bg-white">
+                    <p class="text-xs text-blue-800 leading-relaxed">
+                        📌 <strong>ขั้นตอนการตั้งค่า:</strong> นำโค้ด Google Apps Script (`doPost`) ไปวางใน Apps Script ของ Google Sheet จากนั้นคลิก <em>Deploy > New deployment > Web App</em> กำหนดสิทธิ์ผู้เข้าถึงเป็น <strong>Anyone (ทุกคน)</strong> แล้วคัดลอก URL มาวางในช่องนี้
+                    </p>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" id="btnSaveUrl" onclick="saveGoogleSheetUrl()" class="px-5 py-2 bg-navyCustom text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-navyHover transition flex items-center gap-1.5 shadow-sm">
+                            <span>💾</span> <span id="btnSaveUrlText">บันทึก URL</span>
+                        </button>
+                        <button type="button" id="btnTestUrl" onclick="testGoogleSheetConnection()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-300 transition flex items-center gap-1.5">
+                            <span>🧪</span> <span id="btnTestUrlText">ทดสอบการส่งข้อมูล</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Toast Notification Container -->
+                <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+                    <div id="toastContent" class="bg-navyCustom text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-purple-300/30 text-sm font-medium">
+                        <span id="toastIcon">✅</span>
+                        <span id="toastMessage">แจ้งเตือนสำเร็จ</span>
+                    </div>
+                </div>
+
+                <!-- Code Example Box -->
+                <div class="bg-gray-900 text-gray-100 p-5 rounded-xl text-xs space-y-2 overflow-x-auto">
+                    <div class="flex justify-between items-center text-gray-400 border-b border-gray-800 pb-2">
+                        <span class="font-bold text-amber-400">Google Apps Script Code (Code.gs):</span>
+                        <button type="button" onclick="copyAppsScriptCode()" class="text-xs text-blue-400 hover:underline">📋 คัดลอกโค้ด</button>
+                    </div>
+                    <pre id="appsScriptCodeText" class="font-mono text-emerald-400 whitespace-pre">
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    // หากเป็นชีตใหม่และยังไม่มีหัวข้อ ให้สร้าง Header
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "Timestamp", 
+        "เลขที่ขออนุมัติ", 
+        "กำหนดส่งเอกสาร", 
+        "ผู้ขออนุมัติ", 
+        "ผู้ตรวจเอกสาร", 
+        "ประเภทค่าใช้จ่าย", 
+        "รายการเอกสารที่ติ๊กเลือก", 
+        "หมายเหตุเจ้าหน้าที่"
+      ]);
+      sheet.getRange("1:1").setFontWeight("bold").setBackground("#EDE7F6");
+    }
+
+    var data = JSON.parse(e.postData.contents);
+    
+    sheet.appendRow([
+      data.timestamp || new Date(),
+      data.approvalNo || "",
+      data.dueDate || "",
+      data.requester || "",
+      data.checker || "",
+      data.expenseTypes || "",
+      data.checkedDocuments || "",
+      data.officerNote || ""
+    ]);
+
+    return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ "status": "error", "message": err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal เพิ่มชื่อผู้ขออนุมัติ -->
+    <div id="addRequesterModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4 no-print backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <h3 class="text-lg font-bold text-navyCustom border-b border-gray-100 pb-2">เพิ่มชื่อผู้ขออนุมัติใหม่</h3>
+            <div>
+                <label for="newRequesterName" class="block text-sm font-semibold text-gray-700 mb-1">ชื่อ - นามสกุล บุคลากร</label>
+                <input type="text" id="newRequesterName" placeholder="เช่น ดร.สมชาย ใจดี" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-sritrang focus:outline-none text-sm">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeAddRequesterModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 text-sm hover:bg-gray-100">ยกเลิก</button>
+                <button type="button" onclick="addNewRequester()" class="px-4 py-2 bg-sritrang text-white rounded-lg text-sm hover:bg-sritrangHover font-medium">บันทึกชื่อ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ดูรายละเอียด / พิมพ์ย้อนหลัง -->
+    <div id="viewDetailModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4 no-print backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                <h3 class="text-lg font-bold text-navyCustom">รายละเอียดประวัติเช็คลิส</h3>
+                <button type="button" onclick="closeViewDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+            <div id="viewDetailContent" class="text-sm space-y-3 text-gray-700">
+                <!-- Dynamic Content -->
+            </div>
+            <div class="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                <button type="button" onclick="closeViewDetailModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 text-sm">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-navyCustom text-white text-center py-4 text-xs no-print border-t border-blue-900 mt-8">
+        <p>ระบบเช็คลิสเพื่อประกอบการเบิกจ่ายหลังได้รับอนุมัติ &copy; 2026 คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยสงขลานครินทร์</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // List of PSU Requesters
+        let requesters = [
+            "นายสราวุธ บุญชูศรี",
+            "นางสาวประกายแก้ว โกวิทกิตติ",
+            "นายจตุพร วิเศษโชค",
+            "นางสาวอภิญญา ปราชญ์",
+            "นางสนธยา สนธิสุวรรณ",
+            "นางสาวพันธ์ทิพย์ เจริญศักดิ์",
+            "นางสาวกังสดาล ไชยสุภา",
+            "นางสาวกรรวี ถาวรสังข์",
+            "นางสาวอัญชลี ปานเนื่อง"
+        ];
+
+        // List of Document Checkers
+        const checkers = [
+            "นางสาวกังสดาล ไชยสุภา",
+            "นางสาวกรรวี ถาวรสังข์",
+            "นางสาวอัญชลี ปานเนื่อง"
+        ];
+
+        // Complete Expense Categories & Related Regulations
+        const expenseData = [
+            {
+                id: "exp1",
+                name: "ค่าใช้จ่ายในการเดินทางในประเทศ",
+                condition: "สิทธิที่จะได้รับค่าใช้จ่ายในการเดินทางไปปฏิบัติงานเกิดขึ้นตั้งแต่วันที่ได้รับอนุมัติให้เดินทาง โดยให้ผู้มีอำนาจอนุมัติให้เดินทางไปปฏิบัติงานได้ตามความจำเป็นและเหมาะสม",
+                regulation: "- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการเดินทางไปปฏิบัติงาน\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)",
+                docs: [
+                    { name: "ใบเบิกค่าใช้จ่ายในการเดินทาง ส่วนที่ 1", desc: "กรณีมีผู้รับเงินคนเดียว" },
+                    { name: "ใบเบิกค่าใช้จ่ายในการเดินทาง ส่วนที่ 2", desc: "กรณีมีผู้รับเงินมากกว่า 1 คน" },
+                    { name: "ใบเสร็จรับเงินของบริษัทสายการบิน หรือตัวแทนจำหน่าย หรือผู้ประกอบธุรกิจนำเที่ยว", desc: "ระบุชื่อสายการบิน วันที่ออก ชื่อ-สกุลผู้เดินทาง ต้นทาง-ปลายทาง เลขเที่ยวบิน วันเวลา จำนวนเงิน" },
+                    { name: "ใบเสร็จรับเงิน หรือใบแจ้งรายการของโรงแรม/ที่พักแรม", desc: "ระบุข้อความรับชำระเงินเรียบร้อย วันเข้า-ออก อัตราค่าห้อง (กรณีอิเล็กทรอนิกส์ไม่ต้องมีลายมือชื่อก็ได้)" },
+                    { name: "ใบขอรถยนต์ หลักฐานรับเงินพนักงานขับรถ และใบเสร็จค่าน้ำมันเชื้อเพลิง", desc: "กรณีใช้รถยนต์ส่วนราชการ (ระบุทะเบียนส่วนงาน)" },
+                    { name: "ใบรับรองแทนใบเสร็จรับเงิน (แบบ บก.111)", desc: "กรณีเดินทางโดยยานพาหนะประจำทาง พาหนะรับจ้าง หรือยานพาหนะส่วนตัว" },
+                    { name: "ใบเสร็จรับเงินค่าลงทะเบียน", desc: "แสดงรายละเอียดการชำระเงินค่าลงทะเบียนเข้าร่วมประชุม/อบรม" }
+                ]
+            },
+            {
+                id: "exp2",
+                name: "ค่าใช้จ่ายในการเดินทางต่างประเทศ",
+                condition: "สิทธิที่จะได้รับค่าใช้จ่ายเกิดขึ้นตั้งแต่วันที่ได้รับอนุมัติให้เดินทาง โดยคำนึงถึงความจำเป็น ประหยัด และคุ้มค่า",
+                regulation: "- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการเดินทางไปปฏิบัติงาน\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน พ.ศ. 2562",
+                docs: [
+                    { name: "ใบเบิกค่าใช้จ่ายในการเดินทางต่างประเทศ", desc: "ลงนามผู้ขอเบิกและผู้รับรอง" },
+                    { name: "ใบเบิกค่าใช้จ่ายในการเดินทาง ส่วนที่ 2", desc: "กรณีมีผู้รับเงินมากกว่า 1 คน" },
+                    { name: "ใบเสร็จรับเงินสายการบิน / e-Ticket / Boarding Pass", desc: "แสดงรายละเอียดการเดินทางและยอดเงินชัดเจน" },
+                    { name: "ใบเสร็จรับเงินค่าเช่าที่พักในต่างประเทศ", desc: "บันทึกด้วยระบบอิเล็กทรอนิกส์แสดงการชำระเงินแล้ว" },
+                    { name: "ใบรับรองแทนใบเสร็จ", desc: "สำหรับค่าใช้จ่ายสกุลต่างประเทศ โดยแปลงเป็นสกุลเงินไทยพร้อมหลักฐานอัตราแลกเปลี่ยน" },
+                    { name: "ใบเสร็จรับเงินของผู้ประกอบธุรกิจนำเที่ยว", desc: "ดำเนินการตาม พ.ร.บ. จัดซื้อจัดจ้างฯ" },
+                    { name: "ใบเสร็จรับเงินค่าลงทะเบียนประชุมต่างประเทศ", desc: "จากเจ้าภาพผู้จัดประชุม" },
+                    { name: "หลักฐานอัตราแลกเปลี่ยนเงินตราต่างประเทศ", desc: "ใบเสร็จแลกเงิน หรือประกาศ ธปท. หรือใบแจ้งยอดบัตรเครดิต" }
+                ]
+            },
+            {
+                id: "exp3",
+                name: "ค่าใช้จ่ายในการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศ",
+                condition: "ต้องได้รับอนุมัติโครงการและงบประมาณก่อนเกิดค่าใช้จ่าย หากเลื่อนหรือยกเลิกต้องได้รับอนุมัติจากผู้มีอำนาจก่อน",
+                regulation: "- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศ พ.ศ. 2564",
+                docs: [
+                    { name: "ใบเสร็จรับเงินค่าใช้จ่ายโครงการ", desc: "ออกในนามส่วนงาน/มหาวิทยาลัย" },
+                    { name: "เอกสารกระบวนการพัสดุ และใบตรวจรับพัสดุ", desc: "กรณีเข้ากระบวนการจัดซื้อจัดจ้างพัสดุ" },
+                    { name: "ใบสำคัญรับเงินโครงการ พร้อมสำเนาบัตรประชาชน", desc: "กรณีไม่อาจเรียกใบเสร็จรับเงินจากผู้รับชำระได้" },
+                    { name: "ใบสำคัญรับเงินค่าตอบแทนวิทยากร พร้อมสำเนาบัตรประชาชน", desc: "เพื่อจัดทำหนังสือรับรองภาษีหัก ณ ที่จ่าย" },
+                    { name: "หลักฐานการโอนเงินผ่านธนาคาร (e-Slip)", desc: "กรณีจ่ายค่าตอบแทนผ่านระบบโอนเงิน" },
+                    { name: "หนังสือเชิญวิทยากร / ตารางกำหนดการอบรม", desc: "ระบุหัวข้อ วัน เวลา สถานที่" },
+                    { name: "ลายมือชื่อผู้เข้าร่วมโครงการ / ภาพถ่ายหน้าจอ (กรณีออนไลน์)", desc: "เป็นหลักฐานการแสดงตนเข้าร่วม" },
+                    { name: "ใบขอใช้รถยนต์ และหลักฐานการจ่ายเงินพนักงานขับรถ", desc: "กรณีใช้ยานพาหนะส่วนราชการ" },
+                    { name: "ใบรับรองแทนใบเสร็จ", desc: "สำหรับค่าพาหนะเดินทางของวิทยากร/ผู้เข้าร่วม" }
+                ]
+            },
+            {
+                id: "exp4",
+                name: "ค่าล่วงเวลา",
+                condition: "ต้องได้รับอนุมัติจากหัวหน้าส่วนงานก่อนการปฏิบัติงานนอกเวลาปฏิบัติราชการปกติ",
+                regulation: "- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์ เงื่อนไขและอัตราการเบิกจ่ายเงินค่าล่วงเวลาแก่บุคลากร",
+                docs: [
+                    { name: "หลักฐานการเบิกจ่ายเงินค่าล่วงเวลา", desc: "ตามแบบฟอร์มที่มหาวิทยาลัยกำหนด" },
+                    { name: "บัญชีแสดงการปฏิบัติงานล่วงเวลา", desc: "ระบุภารกิจ วัน เวลา และผู้ปฏิบัติงาน" },
+                    { name: "รายงาน TIME STAMP หรือใบลงเวลาปฏิบัติงาน", desc: "แสดงเวลาเข้า-ออกงานจริง" }
+                ]
+            },
+            {
+                id: "exp5",
+                name: "การเบิกจ่ายเงินค่าตอบแทนนักเรียน นักศึกษา ที่ช่วยปฏิบัติงานราชการ",
+                condition: "ต้องได้รับอนุมัติก่อนปฏิบัติงาน และการปฏิบัติงานต้องไม่ตรงกับเวลาเรียนตามตารางเรียน",
+                regulation: "- หนังสือกระทรวงการคลัง ที่ กค 0406.4/ว30 ลงวันที่ 3 เมษายน 2558",
+                docs: [
+                    { name: "ใบสำคัญรับเงิน และสำเนาบัตรประชาชน/บัตรนักศึกษา", desc: "พร้อมลงนามรับเงิน" },
+                    { name: "ใบลงเวลาปฏิบัติงานของนักศึกษา", desc: "ระบุวัน เวลา งานที่ปฏิบัติ และผู้รับรอง" }
+                ]
+            },
+            {
+                id: "exp6",
+                name: "ค่าใช้จ่ายจัดประชุม",
+                condition: "กรณีประชุมรูปแบบออนไลน์ ไม่สามารถเบิกค่าอาหารและเครื่องดื่มได้",
+                regulation: "- หนังสือ มอ 402.1/67-1023 ลงวันที่ 15 มีนาคม 2567 เรื่อง แนวปฏิบัติการเบิกจ่ายค่าใช้จ่ายในการประชุม",
+                docs: [
+                    { name: "ใบเสร็จรับเงินค่าอาหาร อาหารว่างและเครื่องดื่ม", desc: "ระบุจำนวนมื้อ และจำนวนผู้รับประทาน" },
+                    { name: "ใบสำคัญรับเงิน พร้อมสำเนาบัตรประชาชน", desc: "กรณีไม่สามารถเรียกใบเสร็จจากร้านค้าได้" },
+                    { name: "ลายมือชื่อผู้เข้าร่วมประชุม", desc: "ตามบัญชีลงชื่อผู้เข้าประชุม" },
+                    { name: "หนังสือเชิญประชุม / วาระการประชุม", desc: "ระบุวัน เวลา สถานที่ และเรื่องที่ประชุม" }
+                ]
+            },
+            {
+                id: "exp_other",
+                name: "อื่นๆ",
+                isOther: true,
+                condition: "เป็นไปตามระเบียบ ข้อบังคับ หรือประกาศของมหาวิทยาลัยสงขลานครินทร์ที่เกี่ยวข้อง",
+                regulation: "- ระเบียบและข้อบังคับทั่วไปเกี่ยวกับการเบิกจ่ายเงินงบประมาณ",
+                docs: [
+                    { name: "ใบเสร็จรับเงิน / ใบสำคัญรับเงิน / หลักฐานการจ่ายเงิน", desc: "ตามประเภทและลักษณะของค่าใช้จ่ายนั้นๆ" },
+                    { name: "เอกสารอนุมัติหลักการ / บันทึกข้อความขออนุมัติ", desc: "เสนอผู้มีอำนาจลงนามอนุมัติ" }
+                ]
+            }
+        ];
+
+        // App Initialization
+        function initApp() {
+            renderRequesterDropdown(requesters);
+
+            // Populate Checkers
+            const chkSelect = document.getElementById('checkerSelect');
+            chkSelect.innerHTML = '<option value="">-- เลือกผู้ตรวจเอกสาร --</option>';
+            checkers.forEach(name => {
+                chkSelect.innerHTML += `<option value="${name}">${name}</option>`;
+            });
+
+            // Render Expense Type Checkboxes
+            const expContainer = document.getElementById('expenseTypesContainer');
+            expContainer.innerHTML = '';
+            expenseData.forEach(exp => {
+                if (exp.isOther) {
+                    expContainer.innerHTML += `
+                        <div class="col-span-1 md:col-span-2 bg-white border border-gray-200 rounded-lg p-3 hover:bg-purple-50 transition shadow-sm">
+                            <label class="flex items-start space-x-3 cursor-pointer">
+                                <input type="checkbox" name="expenseType" value="${exp.id}" onchange="updateChecklists();" class="mt-1 h-4 w-4 text-sritrang focus:ring-sritrang border-gray-300 rounded">
+                                <span class="text-sm font-semibold text-gray-800">${exp.name}</span>
+                            </label>
+                            <div id="otherDetailsWrapper" class="mt-2 pl-7 hidden">
+                                <input type="text" id="otherExpenseDetail" placeholder="ระบุรายละเอียดค่าใช้จ่ายอื่นๆ เช่น ค่าบริการโทรศัพท์, ค่าไปรษณีย์..." class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-sritrang focus:outline-none bg-white" oninput="updateChecklists();">
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    expContainer.innerHTML += `
+                        <label class="flex items-start space-x-3 p-3 bg-white border border-gray-200 rounded-lg hover:bg-purple-50 cursor-pointer transition shadow-sm">
+                            <input type="checkbox" name="expenseType" value="${exp.id}" onchange="updateChecklists();" class="mt-1 h-4 w-4 text-sritrang focus:ring-sritrang border-gray-300 rounded">
+                            <span class="text-sm font-semibold text-gray-800">${exp.name}</span>
+                        </label>
+                    `;
+                }
+            });
+
+            // Set default date for Due Date (+7 days from today)
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+            document.getElementById('dueDate').value = nextWeek.toISOString().split('T')[0];
+
+            // Load saved Web App URL
+            const savedUrl = localStorage.getItem('googleSheetWebhookUrl') || '';
+            if(savedUrl) {
+                document.getElementById('googleSheetUrlInput').value = savedUrl;
+            }
+            checkWebAppConfigStatus();
+
+            // Bind Print footer updates
+            document.getElementById('approvalNo').addEventListener('input', updatePrintFooter);
+            document.getElementById('dueDate').addEventListener('change', updatePrintFooter);
+            document.getElementById('requesterInput').addEventListener('input', updatePrintFooter);
+            document.getElementById('checkerSelect').addEventListener('change', updatePrintFooter);
+
+            updateChecklists();
+            loadHistoryTable();
+        }
+
+        // Tab Switching Logic
+        window.switchTab = function(tab) {
+            const sectionForm = document.getElementById('sectionForm');
+            const sectionHistory = document.getElementById('sectionHistory');
+            const sectionSettings = document.getElementById('sectionSettings');
+
+            const btnTabForm = document.getElementById('btnTabForm');
+            const btnTabHistory = document.getElementById('btnTabHistory');
+            const btnTabSettings = document.getElementById('btnTabSettings');
+
+            // Hide all tabs
+            sectionForm.classList.add('hidden');
+            sectionHistory.classList.add('hidden');
+            sectionSettings.classList.add('hidden');
+
+            // Reset tab button styles
+            btnTabForm.className = "px-4 py-2 text-blue-100 font-medium rounded-lg transition hover:text-white hover:bg-white/10";
+            btnTabHistory.className = "px-4 py-2 text-blue-100 font-medium rounded-lg transition hover:text-white hover:bg-white/10";
+            btnTabSettings.className = "px-3 py-2 text-blue-200 font-medium rounded-lg transition hover:text-white hover:bg-white/10 flex items-center gap-1";
+
+            if (tab === 'form') {
+                sectionForm.classList.remove('hidden');
+                btnTabForm.className = "px-4 py-2 bg-sritrang text-white font-medium rounded-lg transition shadow-sm";
+            } else if (tab === 'history') {
+                sectionHistory.classList.remove('hidden');
+                btnTabHistory.className = "px-4 py-2 bg-sritrang text-white font-medium rounded-lg transition shadow-sm";
+                loadHistoryTable();
+            } else if (tab === 'settings') {
+                sectionSettings.classList.remove('hidden');
+                btnTabSettings.className = "px-3 py-2 bg-sritrang text-white font-medium rounded-lg transition shadow-sm flex items-center gap-1";
+            }
+        };
+
+        // Check Web App URL Config Status
+        window.checkWebAppConfigStatus = function() {
+            const url = localStorage.getItem('googleSheetWebhookUrl') || '';
+            const statusText = document.getElementById('webAppStatusText');
+            const noticeBanner = document.getElementById('webAppNoticeBanner');
+
+            if (url) {
+                if (statusText) statusText.innerText = "เชื่อมต่อ Web App URL เรียบร้อยแล้ว (ข้อมูลจะถูกส่งไปยัง Google Sheets และบันทึกในระบบประวัติ)";
+                if (noticeBanner) {
+                    noticeBanner.className = "mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm flex items-start justify-between gap-3 no-print";
+                }
+            } else {
+                if (statusText) statusText.innerText = "ยังไม่ได้ตั้งค่า Web App URL (ระบบจะบันทึกข้อมูลในความจำเบราว์เซอร์เท่านั้น)";
+                if (noticeBanner) {
+                    noticeBanner.className = "mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs sm:text-sm flex items-start justify-between gap-3 no-print";
+                }
+            }
+        };
+
+        // Toast Notification Helper
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toastNotification');
+            const toastContent = document.getElementById('toastContent');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.innerText = message;
+
+            if (type === 'success') {
+                toastContent.className = "bg-emerald-800 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-400/30 text-sm font-medium";
+                toastIcon.innerText = "✅";
+            } else if (type === 'error') {
+                toastContent.className = "bg-red-800 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-red-400/30 text-sm font-medium";
+                toastIcon.innerText = "❌";
+            } else {
+                toastContent.className = "bg-navyCustom text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-blue-400/30 text-sm font-medium";
+                toastIcon.innerText = "ℹ️";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3500);
+        }
+
+        // Settings Actions
+        window.saveGoogleSheetUrl = function() {
+            const url = document.getElementById('googleSheetUrlInput').value.trim();
+            localStorage.setItem('googleSheetWebhookUrl', url);
+            checkWebAppConfigStatus();
+
+            // UI Feedback on Save Button
+            const btnSave = document.getElementById('btnSaveUrl');
+            const btnSaveText = document.getElementById('btnSaveUrlText');
+            
+            btnSave.className = "px-5 py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 shadow-md";
+            btnSaveText.innerText = "✅ บันทึกแล้ว!";
+
+            showToast('บันทึก Google Sheet Web App URL เรียบร้อยแล้ว!');
+
+            setTimeout(() => {
+                btnSave.className = "px-5 py-2 bg-navyCustom text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-navyHover transition flex items-center gap-1.5";
+                btnSaveText.innerText = "บันทึก URL";
+            }, 3000);
+        };
+
+        window.testGoogleSheetConnection = async function() {
+            const url = document.getElementById('googleSheetUrlInput').value.trim();
+            if (!url) {
+                showToast('กรุณากรอก Web App URL ก่อนทดสอบ', 'error');
+                return;
+            }
+
+            const btnTest = document.getElementById('btnTestUrl');
+            const btnTestText = document.getElementById('btnTestUrlText');
+            
+            btnTest.disabled = true;
+            btnTestText.innerText = "กำลังทดสอบ...";
+
+            const testPayload = {
+                timestamp: new Date().toLocaleString('th-TH'),
+                approvalNo: "ทดสอบระบบ",
+                dueDate: "-",
+                requester: "ระบบทดสอบ",
+                checker: "ระบบทดสอบ",
+                expenseTypes: "ทดสอบการส่งข้อมูล",
+                checkedDocuments: "รายการทดสอบเชื่อมต่อ Google Sheet",
+                officerNote: "ทดสอบการส่งข้อมูลจากระบบเช็คลิส PSU คณะวิทยาศาสตร์ฯ"
+            };
+
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testPayload)
+                });
+
+                showToast('ส่งข้อมูลทดสอบไปยัง Google Sheets เรียบร้อยแล้ว!');
+                
+                // Switch back to Form Tab automatically after successful test
+                setTimeout(() => {
+                    switchTab('form');
+                }, 1200);
+
+            } catch (err) {
+                showToast('เกิดข้อผิดพลาดในการส่งข้อมูล: ' + err.toString(), 'error');
+            } finally {
+                btnTest.disabled = false;
+                btnTestText.innerText = "ทดสอบการส่งข้อมูล";
+            }
+        };
+
+        window.copyAppsScriptCode = function() {
+            const code = document.getElementById('appsScriptCodeText').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('คัดลอกโค้ด Apps Script เรียบร้อยแล้ว!');
+            }).catch(() => {
+                document.execCommand('copy');
+                showToast('คัดลอกโค้ด Apps Script เรียบร้อยแล้ว!');
+            });
+        };
+
+        // Requesters Searchable Dropdown
+        function renderRequesterDropdown(list) {
+            const dropdown = document.getElementById('requesterDropdown');
+            dropdown.innerHTML = '';
+            if(list.length === 0) {
+                dropdown.innerHTML = '<div class="p-2.5 text-xs text-gray-400 text-center">ไม่พบรายชื่อในระบบ</div>';
+                return;
+            }
+            list.forEach(name => {
+                dropdown.innerHTML += `<div onclick="selectRequester('${name}')" class="px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-purple-100 hover:text-sritrang cursor-pointer transition">${name}</div>`;
+            });
+        }
+
+        function showRequesterDropdown() {
+            document.getElementById('requesterDropdown').classList.remove('hidden');
+        }
+
+        function filterRequesters() {
+            const key = document.getElementById('requesterInput').value.toLowerCase();
+            const filtered = requesters.filter(r => r.toLowerCase().includes(key));
+            renderRequesterDropdown(filtered);
+            showRequesterDropdown();
+        }
+
+        function selectRequester(name) {
+            document.getElementById('requesterInput').value = name;
+            document.getElementById('requesterDropdown').classList.add('hidden');
+            updatePrintFooter();
+        }
+
+        function openAddRequesterModal() {
+            document.getElementById('addRequesterModal').classList.remove('hidden');
+        }
+
+        function closeAddRequesterModal() {
+            document.getElementById('addRequesterModal').classList.add('hidden');
+            document.getElementById('newRequesterName').value = '';
+        }
+
+        function addNewRequester() {
+            const name = document.getElementById('newRequesterName').value.trim();
+            if(name) {
+                if(!requesters.includes(name)) {
+                    requesters.push(name);
+                }
+                selectRequester(name);
+                closeAddRequesterModal();
+            }
+        }
+
+        // Dynamic Document Checklist Rendering
+        function updateChecklists() {
+            const container = document.getElementById('dynamicChecklistsArea');
+            const selectedCheckboxes = document.querySelectorAll('input[name="expenseType"]:checked');
+            const otherWrapper = document.getElementById('otherDetailsWrapper');
+            
+            let isOtherChecked = false;
+            selectedCheckboxes.forEach(cb => {
+                if(cb.value === 'exp_other') isOtherChecked = true;
+            });
+
+            if (otherWrapper) {
+                if (isOtherChecked) {
+                    otherWrapper.classList.remove('hidden');
+                } else {
+                    otherWrapper.classList.add('hidden');
+                }
+            }
+
+            if (selectedCheckboxes.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500 text-sm no-print">
+                        👈 กรุณาติ๊กเลือกประเภทค่าใช้จ่ายด้านบน เพื่อแสดงรายการเอกสารเช็คลิสที่ต้องแนบ
+                    </div>
+                `;
+                updatePrintFooter();
+                return;
+            }
+
+            container.innerHTML = '';
+
+            selectedCheckboxes.forEach(cb => {
+                const expObj = expenseData.find(e => e.id === cb.value);
+                if (!expObj) return;
+
+                let title = expObj.name;
+                if(expObj.isOther) {
+                    const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                    if(detail) title += ` (${detail})`;
+                }
+
+                let html = `
+                    <div class="expense-card-print selected-expense-card border border-purple-200 rounded-xl p-5 bg-white shadow-sm transition hover:shadow-md">
+                        <div class="flex justify-between items-start mb-3 border-b border-purple-100 pb-2">
+                            <h3 class="text-base sm:text-lg font-bold text-sritrang flex items-center gap-2">
+                                📌 ${title}
+                            </h3>
+                            <button type="button" onclick="checkAllDocsInCard('${expObj.id}', true)" class="text-xs text-sritrang hover:underline no-print font-medium">
+                                เลือกทั้งหมด
+                            </button>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600 bg-purple-50/70 p-3 rounded-lg mb-4 space-y-1 border border-purple-100">
+                            <p><strong>เงื่อนไข:</strong> ${expObj.condition}</p>
+                            <p class="whitespace-pre-line"><strong>ระเบียบอ้างอิง:</strong> ${expObj.regulation}</p>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs sm:text-sm border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100/80 border-b border-gray-200 text-gray-700">
+                                        <th class="p-2.5 w-12 text-center print-checkbox-col">เลือก</th>
+                                        <th class="p-2.5 font-bold">รายการเอกสารหลักฐาน</th>
+                                        <th class="p-2.5 font-bold">รายละเอียดคำแนะนำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                `;
+
+                expObj.docs.forEach((doc, idx) => {
+                    const docId = `${expObj.id}_doc_${idx}`;
+                    html += `
+                        <tr class="doc-row-item transition hover:bg-purple-50/40" id="row_${docId}">
+                            <td class="p-2.5 text-center print-checkbox-col">
+                                <input type="checkbox" id="${docId}" onchange="toggleDocRow('${docId}')" class="card-doc-checkbox-${expObj.id} h-4 w-4 text-sritrang rounded border-gray-300 focus:ring-sritrang">
+                            </td>
+                            <td class="p-2.5 font-semibold text-gray-800">${doc.name}</td>
+                            <td class="p-2.5 text-xs text-gray-500">${doc.desc}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML += html;
+            });
+
+            updatePrintFooter();
+        }
+
+        function toggleDocRow(docId) {
+            const row = document.getElementById(`row_${docId}`);
+            const checkbox = document.getElementById(docId);
+            if(checkbox.checked) {
+                row.classList.add('checked-print-row', 'bg-purple-50/60');
+            } else {
+                row.classList.remove('checked-print-row', 'bg-purple-50/60');
+            }
+            updatePrintFooter();
+        }
+
+        function checkAllDocsInCard(expId, state) {
+            const checkboxes = document.querySelectorAll(`.card-doc-checkbox-${expId}`);
+            checkboxes.forEach(cb => {
+                cb.checked = state;
+                toggleDocRow(cb.id);
+            });
+        }
+
+        // Print Footer Sync
+        function updatePrintFooter() {
+            document.getElementById('printApprovalNo').innerText = document.getElementById('approvalNo').value || '-';
+            
+            const dueDateVal = document.getElementById('dueDate').value;
+            if(dueDateVal) {
+                const dateObj = new Date(dueDateVal);
+                document.getElementById('printDueDate').innerText = dateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+            } else {
+                document.getElementById('printDueDate').innerText = '-';
+            }
+
+            document.getElementById('printRequester').innerText = document.getElementById('requesterInput').value || '-';
+            document.getElementById('printChecker').innerText = document.getElementById('checkerSelect').value || '-';
+
+            // Selected Expenses
+            const selectedExpNames = [];
+            document.querySelectorAll('input[name="expenseType"]:checked').forEach(cb => {
+                const exp = expenseData.find(e => e.id === cb.value);
+                if(exp) {
+                    let name = exp.name;
+                    if(exp.isOther) {
+                        const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                        if(detail) name += ` (${detail})`;
+                    }
+                    selectedExpNames.push(name);
+                }
+            });
+            document.getElementById('printExpenseTypes').innerText = selectedExpNames.join(', ') || '-';
+
+            // Current Print Date
+            document.getElementById('printDateCurrent').innerText = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            // Officer Note
+            const noteVal = document.getElementById('officerNote').value.trim();
+            const noteSection = document.getElementById('printOfficerNoteSection');
+            if(noteVal) {
+                document.getElementById('printOfficerNoteText').innerText = noteVal;
+                noteSection.classList.add('has-content');
+            } else {
+                noteSection.classList.remove('has-content');
+            }
+        }
+
+        function generatePrintView() {
+            updatePrintFooter();
+            window.print();
+        }
+
+        // Submit & Save Data
+        async function saveRecord() {
+            const approvalNo = document.getElementById('approvalNo').value.trim();
+            const dueDate = document.getElementById('dueDate').value;
+            const requester = document.getElementById('requesterInput').value.trim();
+            const checker = document.getElementById('checkerSelect').value;
+            const officerNote = document.getElementById('officerNote').value.trim();
+
+            if (!approvalNo || !dueDate || !requester || !checker) {
+                alert('กรุณากรอกข้อมูลสำคัญที่มีเครื่องหมาย * ให้ครบถ้วน');
+                return;
+            }
+
+            const selectedExp = [];
+            document.querySelectorAll('input[name="expenseType"]:checked').forEach(cb => {
+                const exp = expenseData.find(e => e.id === cb.value);
+                if(exp) {
+                    let name = exp.name;
+                    if(exp.isOther) {
+                        const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                        if(detail) name += ` (${detail})`;
+                    }
+                    selectedExp.push(name);
+                }
+            });
+
+            if (selectedExp.length === 0) {
+                alert('กรุณาเลือกประเภทค่าใช้จ่ายอย่างน้อย 1 ตัวเลือก');
+                return;
+            }
+
+            const checkedDocs = [];
+            document.querySelectorAll('.checked-print-row').forEach(row => {
+                const docName = row.children[1]?.innerText || '';
+                if(docName) checkedDocs.push(docName);
+            });
+
+            const recordData = {
+                id: Date.now().toString(),
+                timestamp: new Date().toLocaleString('th-TH'),
+                approvalNo,
+                dueDate,
+                requester,
+                checker,
+                officerNote,
+                expenseTypes: selectedExp.join(', '),
+                checkedDocuments: checkedDocs.length > 0 ? checkedDocs.join(', ') : 'ไม่ได้เลือกรายการเอกสาร'
+            };
+
+            const btnSave = document.getElementById('btnSaveRecord');
+            btnSave.disabled = true;
+            btnSave.innerHTML = `<span>⏳ กำลังบันทึกข้อมูล...</span>`;
+
+            // 1. Save to Browser LocalStorage
+            let history = JSON.parse(localStorage.getItem('checklistHistory') || '[]');
+            history.unshift(recordData);
+            localStorage.setItem('checklistHistory', JSON.stringify(history));
+
+            // 2. Post to Google Sheet Web App if URL is provided
+            const googleSheetUrl = localStorage.getItem('googleSheetWebhookUrl');
+            let sheetSuccess = false;
+
+            if (googleSheetUrl) {
+                try {
+                    await fetch(googleSheetUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(recordData)
+                    });
+                    sheetSuccess = true;
+                } catch (e) {
+                    console.error('Google Sheet Post Error:', e);
+                }
+            }
+
+            btnSave.disabled = false;
+            btnSave.innerHTML = `<span>💾 บันทึกข้อมูลเข้า Google Sheets</span>`;
+
+            if (googleSheetUrl && sheetSuccess) {
+                alert('✅ บันทึกข้อมูลเรียบร้อยแล้ว และส่งข้อมูลเข้า Google Sheets สำเร็จ!');
+            } else if (googleSheetUrl && !sheetSuccess) {
+                alert('⚠️ บันทึกข้อมูลลงในความจำเบราว์เซอร์แล้ว แต่ไม่สามารถส่งเข้า Google Sheets ได้ โปรดตรวจสอบ Web App URL');
+            } else {
+                alert('✅ บันทึกข้อมูลลงในความจำเบราว์เซอร์เรียบร้อยแล้ว!');
+            }
+
+            resetForm();
+        }
+
+        // History Table Renderer
+        function loadHistoryTable() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('checklistHistory') || '[]');
+
+            if(history.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-400">ยังไม่มีประวัติการบันทึกข้อมูลในระบบ</td></tr>`;
+                return;
+            }
+
+            history.forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-purple-50/50 transition">
+                        <td class="p-3 text-xs text-gray-500">${item.timestamp}</td>
+                        <td class="p-3 font-bold text-navyCustom">${item.approvalNo}</td>
+                        <td class="p-3">${item.requester}</td>
+                        <td class="p-3">${item.checker}</td>
+                        <td class="p-3 text-xs text-gray-600 max-w-xs truncate">${item.expenseTypes}</td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="viewRecordDetail('${item.id}')" class="px-2.5 py-1 bg-sritrangLight text-sritrang rounded text-xs hover:bg-sritrang hover:text-white transition">ดูข้อมูล</button>
+                            <button onclick="deleteRecord('${item.id}')" class="px-2.5 py-1 bg-red-100 text-red-600 rounded text-xs hover:bg-red-600 hover:text-white transition">ลบ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function viewRecordDetail(id) {
+            const history = JSON.parse(localStorage.getItem('checklistHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            if (!item) return;
+
+            const modalContent = document.getElementById('viewDetailContent');
+            modalContent.innerHTML = `
+                <div class="bg-purple-50 p-3 rounded-lg border border-purple-200 text-xs space-y-1">
+                    <p><strong>วันที่บันทึก:</strong> ${item.timestamp}</p>
+                    <p><strong>เลขที่ขออนุมัติ:</strong> ${item.approvalNo}</p>
+                    <p><strong>กำหนดส่งเอกสาร:</strong> ${item.dueDate}</p>
+                    <p><strong>ผู้ขออนุมัติ:</strong> ${item.requester}</p>
+                    <p><strong>ผู้ตรวจเอกสาร:</strong> ${item.checker}</p>
+                </div>
+                <div>
+                    <strong class="text-navyCustom">ประเภทค่าใช้จ่าย:</strong>
+                    <p class="text-xs bg-gray-100 p-2 rounded mt-1">${item.expenseTypes}</p>
+                </div>
+                <div>
+                    <strong class="text-navyCustom">เอกสารหลักฐานที่แนบ:</strong>
+                    <p class="text-xs bg-gray-100 p-2 rounded mt-1 whitespace-pre-line">${item.checkedDocuments}</p>
+                </div>
+                <div>
+                    <strong class="text-navyCustom">หมายเหตุเจ้าหน้าที่:</strong>
+                    <p class="text-xs bg-gray-100 p-2 rounded mt-1">${item.officerNote || '-'}</p>
+                </div>
+            `;
+            document.getElementById('viewDetailModal').classList.remove('hidden');
+        }
+
+        function closeViewDetailModal() {
+            document.getElementById('viewDetailModal').classList.add('hidden');
+        }
+
+        function deleteRecord(id) {
+            if(confirm('คุณต้องการลบรายการนี้ออกจากประวัติใช่หรือไม่?')) {
+                let history = JSON.parse(localStorage.getItem('checklistHistory') || '[]');
+                history = history.filter(item => item.id !== id);
+                localStorage.setItem('checklistHistory', JSON.stringify(history));
+                loadHistoryTable();
+            }
+        }
+
+        function exportHistoryCSV() {
+            const history = JSON.parse(localStorage.getItem('checklistHistory') || '[]');
+            if(history.length === 0) {
+                alert('ไม่มีข้อมูลสำหรับส่งออก');
+                return;
+            }
+
+            let csvContent = "\uFEFFTimestamp,เลขที่ขออนุมัติ,กำหนดส่งเอกสาร,ผู้ขออนุมัติ,ผู้ตรวจเอกสาร,ประเภทค่าใช้จ่าย,เอกสารที่แนบ,หมายเหตุ\n";
+            history.forEach(r => {
+                csvContent += `"${r.timestamp}","${r.approvalNo}","${r.dueDate}","${r.requester}","${r.checker}","${r.expenseTypes}","${r.checkedDocuments.replace(/"/g, '""')}","${r.officerNote}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `checklist_export_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function resetForm() {
+            document.getElementById('checklistForm').reset();
+            document.getElementById('requesterInput').value = '';
+            document.getElementById('officerNote').value = '';
+            updateChecklists();
+            updatePrintFooter();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const reqInput = document.getElementById('requesterInput');
+            const reqDropdown = document.getElementById('requesterDropdown');
+            if (reqInput && reqDropdown && !reqInput.contains(e.target) && !reqDropdown.contains(e.target)) {
+                reqDropdown.classList.add('hidden');
+            }
+        });
+
+        // Initialize application on load
+        window.onload = initApp;
+    </script>
+</body>
+</html>

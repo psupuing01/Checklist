@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คลิสต์เพื่อประกอบการเบิกจ่ายหลังได้รับอนุมัติ - PSU</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        psuNavy: '#1E2B58',
+                        psuPurple: '#6B46C1',
+                        psuPurpleLight: '#F3E8FF',
+                        psuPurpleHover: '#553C9A',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #F8FAFC;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between" onload="initSystem()">
+
+    <!-- Login Screen Overlay (หน้าจอเข้าสู่ระบบ) -->
+    <div id="loginScreen" class="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 border border-slate-100 relative overflow-hidden">
+            <!-- Top Decorative Bar -->
+            <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-psuNavy via-psuPurple to-purple-500"></div>
+            
+            <div class="text-center mb-6 pt-2">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-psuNavy text-white font-bold text-xl tracking-wider shadow-md mb-4">
+                    PSU
+                </div>
+                <h2 class="text-xl font-bold text-psuNavy">เข้าสู่ระบบเช็คลิสต์เบิกจ่าย</h2>
+                <p class="text-xs text-slate-500 mt-1">คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยสงขลานครินทร์</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">ชื่อผู้ใช้งาน (Username)</label>
+                    <input type="text" id="loginUsername" required placeholder="กรอก Username (เช่น kungsadal.c)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-xs font-bold text-slate-700">รหัสผ่าน (Password)</label>
+                        <button type="button" onclick="openForgotPasswordModal()" class="text-xs font-bold text-psuPurple hover:underline">
+                            ลืมรหัส?
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <input type="password" id="loginPassword" required placeholder="กรอกรหัสผ่าน" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition pr-12">
+                        <button type="button" onclick="togglePasswordVisibility('loginPassword')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-semibold px-1.5 py-1">
+                            👁️
+                        </button>
+                    </div>
+                </div>
+
+                <div id="loginErrorMsg" class="hidden bg-red-50 border border-red-200 text-red-600 text-xs p-3 rounded-xl font-medium text-center">
+                    ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-psuPurple hover:bg-psuPurpleHover text-white font-bold rounded-xl text-sm shadow-lg transition transform active:scale-[0.99] mt-2">
+                    🔐 เข้าสู่ระบบ
+                </button>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 text-center">
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    <span class="text-slate-500">รหัสผ่านเข้าสู่ระบบครั้งแรก: <code class="bg-slate-100 px-1.5 py-0.5 rounded text-psuPurple font-bold">123456</code></span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: บังคับเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก -->
+    <div id="firstLoginChangePassModal" class="hidden fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-7 border border-slate-100">
+            <div class="text-center mb-5">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mx-auto mb-3">🔑</div>
+                <h3 class="text-lg font-bold text-psuNavy">ตั้งรหัสผ่านใหม่ (เข้าสู่ระบบครั้งแรก)</h3>
+                <p class="text-xs text-slate-500 mt-1">เพื่อความปลอดภัย กรุณาเปลี่ยนรหัสผ่านเริ่มต้น (<code class="text-psuPurple">123456</code>) เป็นรหัสผ่านใหม่ของคุณ</p>
+            </div>
+            <form onsubmit="handleFirstLoginPasswordChange(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                    <input type="password" id="firstNewPassword" required minlength="4" placeholder="กำหนดรหัสผ่านใหม่ (อย่างน้อย 4 ตัวอักษร)" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ยืนยันรหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                    <input type="password" id="firstConfirmPassword" required minlength="4" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div id="firstPassErrorMsg" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-xl text-center"></div>
+                <button type="submit" class="w-full py-3 bg-psuPurple hover:bg-psuPurpleHover text-white font-bold rounded-xl text-sm shadow transition">
+                    💾 บันทึกรหัสผ่านใหม่และเข้าใช้งาน
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: ลืมรหัสผ่าน (Reset Password) -->
+    <div id="forgotPasswordModal" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-7 border border-slate-100">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-psuNavy flex items-center gap-2">
+                    <span>🔄</span> ตั้งค่ารหัสผ่านใหม่ (ลืมรหัสผ่าน)
+                </h3>
+                <button type="button" onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+            <form onsubmit="handleForgotPasswordSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อผู้ใช้งาน (Username) <span class="text-red-500">*</span></label>
+                    <input type="text" id="forgotUsername" required placeholder="ระบุ Username ของคุณ (เช่น kungsadal.c)" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                    <input type="password" id="forgotNewPassword" required minlength="4" placeholder="ระบุรหัสผ่านใหม่" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ยืนยันรหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                    <input type="password" id="forgotConfirmPassword" required minlength="4" placeholder="ยืนยันรหัสผ่านใหม่อีกครั้ง" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div id="forgotErrorMsg" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-xl text-center"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeForgotPasswordModal()" class="px-4 py-2.5 border border-slate-300 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-100">ยกเลิก</button>
+                    <button type="submit" class="px-5 py-2.5 bg-psuPurple hover:bg-psuPurpleHover text-white font-bold rounded-xl text-xs shadow">
+                        💾 บันทึกรหัสผ่านใหม่
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Top Navigation Header (นำเมนูรายงาน/ประวัติออกแล้ว) -->
+    <header class="bg-psuNavy text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <!-- Logo & System Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 text-white font-bold px-3 py-1.5 rounded-full text-base tracking-wider border border-white/20">
+                    PSU
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">ระบบเช็คลิสต์เพื่อประกอบการเบิกจ่ายหลังได้รับอนุมัติ</h1>
+                    <p class="text-xs text-slate-300">คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยสงขลานครินทร์</p>
+                </div>
+            </div>
+
+            <!-- Header Menu Buttons -->
+            <nav class="flex items-center space-x-2 text-xs sm:text-sm">
+                <span id="loggedInUserBadge" class="hidden md:inline-flex items-center px-3 py-1.5 rounded-xl bg-white/10 text-emerald-300 text-xs font-medium border border-white/10 mr-1">
+                    👤 ผู้ใช้งาน: <strong id="displayUsername" class="ml-1 text-white">admin</strong>
+                </span>
+                <button onclick="switchTab('form')" id="tabFormBtn" class="px-4 py-2 rounded-xl font-medium bg-psuPurple text-white shadow border border-psuPurple/30 flex items-center space-x-1.5 transition">
+                    <span>📄</span> <span>แบบฟอร์มเช็คลิส</span>
+                </button>
+                <button onclick="switchTab('settings')" id="tabSettingsBtn" class="px-4 py-2 rounded-xl font-medium text-slate-200 hover:bg-white/10 hover:text-white flex items-center space-x-1.5 transition">
+                    <span>⚙️</span> <span>ตั้งค่า</span>
+                </button>
+                <button onclick="handleLogout()" class="px-3.5 py-2 rounded-xl font-medium bg-red-500/20 text-red-200 hover:bg-red-600 hover:text-white border border-red-400/30 flex items-center space-x-1 transition" title="ออกจากระบบ">
+                    <span>🚪</span> <span class="hidden sm:inline">ออกจากระบบ</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="max-w-5xl mx-auto px-4 py-8 flex-grow w-full">
+
+        <!-- Form Section Container -->
+        <section id="sectionForm" class="bg-white rounded-3xl shadow-sm p-6 sm:p-10 border border-slate-100 transition-all">
+            
+            <!-- Badge & Main Heading -->
+            <div class="text-center mb-8">
+                <span class="inline-block px-4 py-1 bg-purple-100 text-psuPurple text-xs font-semibold rounded-full mb-3">
+                    คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม
+                </span>
+                <h2 class="text-2xl sm:text-3xl font-bold text-psuNavy tracking-tight">แบบแจ้งการแนบหลักฐานทางการเงินประกอบการเบิกจ่าย</h2>
+                <p class="text-sm text-slate-500 mt-2">โปรดเลือกประเภทค่าใช้จ่าย และติ๊กรายการเอกสารที่แนบประกอบการเบิกจ่าย</p>
+            </div>
+
+            <!-- Status Banner (Google Sheets Connected) -->
+            <div id="statusBanner" class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 mb-8 flex items-center justify-between">
+                <div class="flex items-center space-x-2 text-xs sm:text-sm font-medium">
+                    <span class="text-emerald-600 text-lg">🔗</span>
+                    <span><strong>สถานะการเชื่อมต่อ Google Sheets:</strong> ยึดฐานข้อมูลรายชื่อและตำแหน่งจาก <u>ชีต 2</u> (ไม่มีชื่อซ้ำ)</span>
+                </div>
+                <button onclick="switchTab('settings')" class="text-xs font-bold text-emerald-700 hover:underline hover:text-emerald-900">
+                    ตั้งค่า URL
+                </button>
+            </div>
+
+            <!-- Section 1: Approval Data Inputs -->
+            <div class="bg-amber-50/30 border border-amber-100/60 rounded-2xl p-6 mb-8">
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="w-6 h-6 rounded-full bg-psuNavy text-white flex items-center justify-center text-xs font-bold">1</span>
+                    <h3 class="text-sm sm:text-base font-bold text-psuNavy">ข้อมูลการขออนุมัติเบิกจ่าย</h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">เลขที่ขออนุมัติ <span class="text-red-500">*</span></label>
+                        <input type="text" id="approvalNo" placeholder="กรอกเลขที่ขออนุมัติ เช่น 402.1/69-2222" value="" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">กำหนดส่งเอกสารเบิกจ่ายไม่เกินวันที่ <span class="text-red-500">*</span></label>
+                        <input type="date" id="dueDate" value="" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                    </div>
+
+                    <div class="relative">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">ผู้ขออนุมัติ <span class="text-red-500">*</span> <span class="text-[10px] text-psuPurple font-normal">(ดึงจากชีต 2)</span></label>
+                        <div class="flex gap-2">
+                            <div class="relative w-full">
+                                <input type="text" id="requesterInput" value="" placeholder="พิมพ์ชื่อเพื่อค้นหาผู้ขออนุมัติจากชีต 2..." onfocus="showRequesterDropdown()" oninput="filterRequesterDropdown()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                                <div id="requesterDropdownList" class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto text-xs divide-y divide-slate-100">
+                                    <!-- Dynamic Items from Sheet2 -->
+                                </div>
+                            </div>
+                            <button type="button" onclick="openAddRequesterModal()" class="bg-psuPurple text-white hover:bg-psuPurpleHover px-3 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition shadow-sm flex items-center gap-1">
+                                <span>+ เพิ่มชื่อ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">ตำแหน่งผู้ขออนุมัติ <span class="text-[10px] text-psuPurple font-normal">(ดึงอัตโนมัติจากชีต 2)</span></label>
+                        <input type="text" id="requesterPositionInput" placeholder="ตำแหน่งจะแสดงอัตโนมัติตามชีต 2" value="" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">ผู้ตรวจเอกสาร <span class="text-red-500">*</span> <span class="text-[10px] text-psuPurple font-normal">(เชื่อมโยงอัตโนมัติตามผู้ใช้งานที่เข้าสู่ระบบ)</span></label>
+                        <select id="checkerSelect" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-psuNavy focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                            <!-- Dynamic Options -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Expense Type Choice -->
+            <div class="bg-purple-50/40 border border-purple-100 rounded-2xl p-6 mb-8">
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="w-6 h-6 rounded-full bg-psuPurple text-white flex items-center justify-center text-xs font-bold">2</span>
+                    <h3 class="text-sm sm:text-base font-bold text-psuPurple">เลือกประเภทค่าใช้จ่าย (เลือกได้มากกว่า 1 รายการ)</h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs sm:text-sm">
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_travel_in" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าใช้จ่ายในการเดินทางในประเทศ</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_travel_out" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าใช้จ่ายในการเดินทางต่างประเทศ</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_training" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าใช้จ่ายในการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศ</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_ot" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าล่วงเวลา</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_student" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าตอบแทนนักศึกษาช่วยงาน</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_meeting" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">ค่าใช้จ่ายจัดประชุม</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 bg-white p-3 rounded-xl border border-slate-200 hover:border-psuPurple cursor-pointer transition shadow-sm">
+                        <input type="checkbox" name="expenseType" value="exp_other" onchange="updateChecklists()" class="h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple">
+                        <span class="font-medium text-slate-700">อื่นๆ</span>
+                    </label>
+                </div>
+
+                <!-- Input for Other Details -->
+                <div id="otherDetailsWrapper" class="hidden mt-4 pt-4 border-t border-purple-100">
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">ระบุรายละเอียดประเภทค่าใช้จ่ายเพิ่มเติม (อื่นๆ)</label>
+                    <input type="text" id="otherExpenseDetail" placeholder="เช่น ค่าบริการโทรศัพท์ / ค่าสแกนเอกสาร" oninput="updateChecklists()" class="w-full sm:w-1/2 px-4 py-2 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple focus:border-psuPurple outline-none">
+                </div>
+            </div>
+
+            <!-- Dynamic Checklist Display Area -->
+            <div id="dynamicChecklistsArea" class="space-y-6 mb-8">
+                <!-- Checklists will render automatically -->
+            </div>
+
+            <!-- Officer Note Section -->
+            <div id="officerNoteContainer" class="bg-slate-50 p-5 rounded-2xl border border-slate-200 mb-8">
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">หมายเหตุเพิ่มเติม (สำหรับเจ้าหน้าที่/ผู้ขออนุมัติ)</label>
+                <textarea id="officerNote" rows="2" placeholder="กรอกข้อความระบุหมายเหตุหรือคำแนะนำเพิ่มเติม..." class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple focus:border-psuPurple outline-none bg-white"></textarea>
+            </div>
+
+            <!-- Action Buttons Footer -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-slate-200">
+                <button type="button" onclick="resetForm()" class="px-5 py-2.5 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold transition">
+                    🧹 ล้างฟอร์ม
+                </button>
+                <div class="flex items-center space-x-3">
+                    <button type="button" id="btnSaveRecord" onclick="saveRecord()" class="px-6 py-2.5 bg-psuNavy text-white hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-1.5">
+                        <span>💾 บันทึกข้อมูลเข้า Google Sheets</span>
+                    </button>
+                    <button type="button" onclick="triggerPrintModal()" class="px-6 py-2.5 bg-psuPurple text-white hover:bg-psuPurpleHover rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-1.5">
+                        <span>🖨 สั่งพิมพ์ / ออกรายงาน A4</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab Settings Section -->
+        <section id="sectionSettings" class="hidden bg-white rounded-3xl shadow-sm p-6 sm:p-10 border border-slate-100">
+            <h2 class="text-xl font-bold text-psuNavy mb-4 border-b pb-3">⚙️ ตั้งค่าการเชื่อมต่อ Google Sheets Web App & บัญชีผู้ใช้งาน</h2>
+            <div class="space-y-6 max-w-2xl">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Google Apps Script Web App URL</label>
+                        <input type="text" id="settingWebUrl" class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple outline-none">
+                    </div>
+                    <div class="flex items-center space-x-2 pt-1">
+                        <button onclick="saveWebUrlSetting()" class="px-5 py-2.5 bg-psuPurple text-white rounded-xl text-xs font-bold hover:bg-psuPurpleHover transition shadow-sm">
+                            💾 บันทึก URL
+                        </button>
+                        <button onclick="fetchRequestersFromGoogleSheet(true)" class="px-5 py-2.5 bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold hover:bg-slate-300 transition">
+                            🔄 ดึงรายชื่อจาก ชีต 2 ทันที
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Password Change Section -->
+                <div class="pt-6 border-t border-slate-200">
+                    <h3 class="text-sm font-bold text-psuNavy mb-3">🔑 เปลี่ยนรหัสผ่านเข้าสู่ระบบ</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อผู้ใช้งาน (Username)</label>
+                            <input type="text" id="settingUsername" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">รหัสผ่านใหม่ (New Password)</label>
+                            <input type="password" id="settingNewPassword" placeholder="กรอกรหัสผ่านใหม่" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple outline-none">
+                        </div>
+                    </div>
+                    <button onclick="saveCredentialsSetting()" class="px-5 py-2.5 bg-psuNavy text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-sm">
+                        🔐 บันทึกข้อมูลการเข้าสู่ระบบ
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Add Requester with Position Input (ป้องกันชื่อซ้ำ) -->
+    <div id="addRequesterModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-psuNavy mb-4 flex items-center gap-2">
+                <span class="text-psuPurple text-xl">➕</span> เพิ่มชื่อผู้ขออนุมัติใหม่ (บันทึกลง ชีต2)
+            </h3>
+            
+            <div class="space-y-3.5 mb-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อ - นามสกุล (พร้อมคำนำหน้า) <span class="text-red-500">*</span></label>
+                    <input type="text" id="newRequesterNameInput" placeholder="กรอก คำนำหน้า ชื่อ - นามสกุล" class="w-full p-3 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ตำแหน่งผู้ขออนุมัติ</label>
+                    <input type="text" id="newRequesterPositionInput" placeholder="กรอก ตำแหน่ง (เช่น อาจารย์ประจำสาขาวิชา...)" class="w-full p-3 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-psuPurple outline-none">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeAddRequesterModal()" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-100">ยกเลิก</button>
+                <button onclick="saveNewRequester()" class="px-5 py-2 bg-psuPurple text-white rounded-xl text-xs font-bold hover:bg-psuPurpleHover shadow">บันทึกรายชื่อลง ชีต2</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="customAlertModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mx-auto mb-3">⚠️</div>
+            <h4 class="text-base font-bold text-psuNavy mb-2">แจ้งเตือนระบบ</h4>
+            <p id="customAlertMessage" class="text-xs sm:text-sm text-slate-600 mb-5"></p>
+            <button onclick="closeCustomAlert()" class="w-full py-2.5 bg-psuPurple text-white rounded-xl text-xs font-bold hover:bg-psuPurpleHover transition">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="hidden fixed bottom-6 right-6 z-50 bg-psuNavy text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs sm:text-sm font-semibold flex items-center space-x-2">
+        <span id="toastMsg">บันทึกสำเร็จ</span>
+    </div>
+
+    <script>
+        const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwoJ0gKpA1f1WgSVTcP3elKuO-yevx3ir_EaaU9MFX6gBqJ2iz73TMex0v0z3H2aiZx/exec";
+
+        // บัญชีผู้ใช้งานเริ่มต้นตาม ชีต 3 (รหัสผ่านเริ่มต้น 123456)
+        const DEFAULT_SHEET3_USERS = [
+            { username: 'kungsadal.c', password: '123456', displayName: 'นางสาวกังสดาล ไชยสุภา', isFirstLogin: true },
+            { username: 'kornrawee.t', password: '123456', displayName: 'นางสาวกรรวี ถาวรสังข์', isFirstLogin: true },
+            { username: 'anchalee.pa', password: '123456', displayName: 'นางสาวอัญชลี ปานเนื่อง', isFirstLogin: true }
+        ];
+
+        let systemUsers = [...DEFAULT_SHEET3_USERS];
+        let pendingFirstLoginUser = null;
+        let requesters = [];
+
+        const checkers = [
+            "นางสาวกังสดาล ไชยสุภา",
+            "นางสาวกรรวี ถาวรสังข์",
+            "นางสาวอัญชลี ปานเนื่อง"
+        ];
+
+        const expenseData = [
+            {
+                id: 'exp_travel_in',
+                name: 'ค่าใช้จ่ายในการเดินทางในประเทศ',
+                condition: 'สิทธิที่จะได้รับค่าใช้จ่ายในการเดินทางไปปฏิบัติงานเกิดขึ้นตั้งแต่วันที่ได้รับอนุมัติให้เดินทาง โดยให้ผู้มีอำนาจอนุมัติให้เดินทางไปปฏิบัติงานได้ตามความจำเป็นและเหมาะสม',
+                regulation: '- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการเดินทางไปปฏิบัติงาน\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)',
+                docs: [
+                    { id: 'd_tr_in_1', name: 'บันทึกข้อความขออนุมัติเดินทางปฏิบัติงาน', desc: 'ต้นฉบับที่ได้รับอนุมัติเดินทางปฏิบัติงาน และแหล่งเงิน' },
+                    { id: 'd_tr_in_2', name: 'แบบรายงานการเดินทางไปปฏิบัติงาน', desc: 'กรณีมีผู้รับเงินมากกว่า 1 คน โปรดแนบแบบรายงานการเดินทางไปปฏิบัติงาน ส่วนที่ 2' },
+                    { id: 'd_tr_in_3', name: 'ใบเสร็จรับเงินของบริษัทสายการบิน หรือตัวแทนจำหน่าย หรือผู้ประกอบธุรกิจนำเที่ยว หรือใบรับเงิน', desc: 'แสดงรายละเอียดการเดินทางซึ่งระบุชื่อสายการบิน วันที่ออก ชื่อ สกุลผู้เดินทาง ต้นทาง - ปลายทาง เลขที่เที่ยวบิน วันเวลาที่เดินทาง จำนวนเงิน ที่พิมพ์ออกจากระบบอิเล็กทรอนิกส์' },
+                    { id: 'd_tr_in_4', name: 'ใบรับรองแทนใบเสร็จ', desc: 'กรณีเดินทางโดยใช้ยานพาหนะประจำทาง พาหนะรับจ้าง ยานพาหนะส่วนตัว หรือหลักฐานการจ่ายมีข้อมูลรายละเอียดไม่ครบถ้วน' },
+                    { id: 'd_tr_in_5', name: 'ใบเสร็จรับเงิน และFolio ของโรงแรมหรือที่พักแรม', desc: 'เจ้าหน้าที่รับเงินของโรงแรมหรือที่พักแรมลงลายมือชื่อ วัน เดือน ปี และจำนวนเงินที่ได้รับเพื่อเป็นหลักฐานในการขอเบิกค่าเช่าที่พัก ทั้งนี้ต้องมีรายละเอียดวันที่เข้า-ออก อัตราค่าห้องพัก กรณีผ่านตัวแทนจำหน่าย ที่พิมพ์ออกจากระบบอิเล็กทรอนิกส์ ไม่ต้องมีลายมือชื่อของผู้รับเงินก็ได้ และรายละเอียดข้อความแสดงว่าได้รับชำระเงินค่าเช่าที่พักเรียบร้อยแล้ว จำนวนเงินที่ได้รับ รายละเอียดวันที่เข้า - ออกจากที่พัก อัตราค่าห้องพัก' },
+                    { id: 'd_tr_in_6', name: 'ใบเสร็จรับเงินค่าน้ำมันเชื้อเพลิง พร้อมแนบใบขอใช้รถซึ่งระบุหมายเลขทะเบียนรถ และหลักฐานการรับเงินของพนักงานขับรถ', desc: 'กรณีใช้รถยนต์ส่วนราชการ' },
+                    { id: 'd_tr_in_7', name: 'ใบเสร็จรับเงินค่าลงทะเบียน', desc: 'เป็นไปตามประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงินฯ และระบุ ชื่อ-สกุลผู้ลงทะเบียนในรายละเอียด กรณีมีค่าใช้จ่ายค่าลงทะเบียนแต่ไม่มีค่าใช้จ่ายเดินทาง ผู้เบิกไม่ต้องจัดทำแบบรายงานการเดินทางไปปฏิบัติงาน' }
+                ]
+            },
+            {
+                id: 'exp_travel_out',
+                name: 'ค่าใช้จ่ายในการเดินทางต่างประเทศ',
+                condition: 'สิทธิที่จะได้รับค่าใช้จ่ายในการเดินทางไปปฏิบัติงานเกิดขึ้นตั้งแต่วันที่ได้รับอนุมัติให้เดินทาง โดยให้ผู้มีอำนาจอนุมัติให้เดินทางไปปฏิบัติงานได้ตามความจำเป็นและเหมาะสม',
+                regulation: '- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการเดินทางไปปฏิบัติงาน\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)',
+                docs: [
+                    { id: 'd_tr_out_1', name: 'บันทึกข้อความขออนุมัติเดินทางปฏิบัติงาน', desc: 'ต้นฉบับที่ได้รับอนุมัติเดินทางปฏิบัติงาน และแหล่งเงิน' },
+                    { id: 'd_tr_out_2', name: 'แบบรายงานการเดินทางไปปฏิบัติงาน', desc: 'กรณีมีผู้รับเงินมากกว่า 1 คน โปรดแนบแบบรายงานการเดินทางไปปฏิบัติงาน ส่วนที่ 2' },
+                    { id: 'd_tr_out_3', name: 'ใบเสร็จรับเงินของบริษัทสายการบิน หรือตัวแทนจำหน่าย หรือผู้ประกอบธุรกิจนำเที่ยว หรือใบรับเงิน', desc: 'แสดงรายละเอียดการเดินทางซึ่งระบุชื่อสายการบิน วันที่ออก ชื่อ สกุลผู้เดินทาง ต้นทาง - ปลายทาง เลขที่เที่ยวบิน วันเวลาที่เดินทาง จำนวนเงิน ที่พิมพ์ออกจากระบบอิเล็กทรอนิกส์' },
+                    { id: 'd_tr_out_4', name: 'ใบเสร็จรับเงิน หรือใบแจ้งรายการค่าเช่าที่พักของที่บันทึกด้วยเครื่องอิเล็กทรอนิกส์ โรงแรมหรือที่พักแรม หรือใบเสร็จรับเงินของตัวแทนจำหน่าย', desc: '- กรณีโรงแรมหรือที่พักแรม เป็นผู้ออกใบเสร็จรับเงิน ที่บันทึกด้วยเครื่องอิเล็กทรอนิกส์ ที่แสดงว่าชำระเงินจากผู้เดินทางแล้ว โดยไม่ต้องมีลายมือชื่อเจ้าหน้าที่รับเงินของโรงแรมหรือที่พักแรมได้\n- กรณีผ่านตัวแทนจำหน่าย ให้ใช้ใบเสร็จรับเงินของตัวแทนจำหน่าย ออกจากระบบอิเล็กทรอนิกส์ไม่ต้องมีลายมือชื่อผู้รับเงินได้' },
+                    { id: 'd_tr_out_5', name: 'ใบรับรองแทนใบเสร็จ', desc: 'ค่าใช้จ่ายต่างๆ ในต่างประเทศ (ไม่ใช่สกุลไทย) ผู้เดินทางรับรองการจ่ายเงิน ตามจำนวนที่จ่ายเป็นสกุลเงินไทย พร้อมแนบหลักฐานประกอบการเบิกจ่าย' },
+                    { id: 'd_tr_out_6', name: 'ใบเสร็จรับเงินของผู้ประกอบธุรกิจนำเที่ยว และใบตรวจรับ', desc: 'ดำเนินการตามพระราชบัญญัติการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ และหากให้ผู้ประกอบธุรกิจนำเที่ยวเป็นผู้ดำเนินการซื้อบัตรโดยสารเครื่องบินและจัดทำเอกสารหนังสือเดินทางหรือวีซ่า ให้แนบใบแสดงรายละเอียดการเดินทาง ซึ่งระบุชื่อสายการบิน ชื่อ สกุลผู้เดินทาง ต้นทาง - ปลายทาง เลขที่เที่ยวบิน วันเวลาที่เดินทาง ที่พิมพ์ออกจากระบบอิเล็กทรอนิกส์ และใบเสร็จรับเงินที่หน่วยงานที่เกี่ยวข้องเรียกเก็บเป็นหลักฐานประกอบการเบิกจ่าย' },
+                    { id: 'd_tr_out_7', name: 'หลักฐานการแลกเปลี่ยนเงินตราสกุลต่างประเทศ หรืออัตราแลกเปลี่ยนของธนาคารแห่งประเทศไทย หรือใบแจ้งยอดการใช้จ่ายบัตรเครดิต', desc: 'กรณีผู้เดินทางไม่มีหลักฐานการแลกเปลี่ยนเงินตราสกุลเงินต่างประเทศ สามารถแนบอัตราแลกเปลี่ยนของธนาคารแห่งประเทศไทย ณ วันทำการ 1 วันก่อนวันออกเดินทาง หรือใบแจ้งยอดการใช้จ่ายบัตรเครดิต' }
+                ]
+            },
+            {
+                id: 'exp_training',
+                name: 'ค่าใช้จ่ายในการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศ',
+                condition: 'สิทธิที่จะได้รับค่าใช้จ่ายต้องได้รับอนุมัติก่อนเกิดค่าใช้จ่าย และหากมีการยกเลิก หรือการเลื่อนการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศต้องได้รับการอนุมัติจากผู้มีอำนาจก่อน จึงจะสามารถเบิกค่าใช้จ่ายที่เกิดขึ้นจากการยกเลิกหรือการเลื่อนดังกล่าวได้',
+                regulation: '- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง การเบิกค่าใช้จ่ายในการจัดฝึกอบรม การจัดงาน และการจัดประชุมระหว่างประเทศ พ.ศ.2564\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)',
+                docs: [
+                    { id: 'd_trn_1', name: 'โครงการฝึกอบรม/ประชุม และกำหนดการ', desc: 'ต้นฉบับที่ได้รับอนุมัติ' },
+                    { id: 'd_trn_2', name: 'ใบเซ็นชื่อผู้เข้าร่วมโครงการ/ประชุม', desc: 'เป็นหลักฐานแสดงผู้เข้าร่วมโครงการ/ประชุม' },
+                    { id: 'd_trn_3', name: 'ภาพถ่ายหน้าจอการเข้าร่วม (กรณีออนไลน์)', desc: 'เป็นหลักฐานแสดงผู้เข้าร่วมโครงการ/ประชุม' },
+                    { id: 'd_trn_4', name: 'ใบสำคัญรับเงินวิทยากร พร้อมแนบสำเนาบัตรประชาชน และหนังสือเชิญวิทยากร', desc: 'เป็นหลักฐานการจ่ายค่าวิทยากร และเพื่อจัดทำหนังสือรับรองภาษีหัก ณ ที่จ่าย' },
+                    { id: 'd_trn_5', name: 'หลักฐานการโอนเงินผ่านธนาคารที่พิมพ์ออกจากระบบอิเล็กทรอนิกส์', desc: 'สำหรับค่าใช้จ่ายของวิทยากร หลักสูตรผ่านระบบอิเล็กทรอนิกส์' },
+                    { id: 'd_trn_6', name: 'ใบสำคัญรับเงิน', desc: 'ใช้สำหรับกรณีไม่สามารถเรียกใบเสร็จรับเงิน' },
+                    { id: 'd_trn_7', name: 'ใบเสร็จรับเงินหรือใบสำคัญรับเงิน พร้อมแนบสำเนาบัตรประชาชน', desc: 'ใช้สำหรับค่าอาหาร อาหารว่างและเครื่องดื่ม เป็นหลักฐานการจ่ายค่าอาหาร อาหารว่างและเครื่องดื่ม' },
+                    { id: 'd_trn_8', name: 'ใบเสร็จรับเงิน และFolio ของโรงแรมหรือที่พักแรม', desc: 'เจ้าหน้าที่รับเงินของโรงแรมหรือที่พักแรมลงลายมือชื่อ วัน เดือน ปี และจำนวนเงินที่ได้รับเพื่อเป็นหลักฐานในการขอเบิกค่าเช่าที่พัก ทั้งนี้ต้องมีรายละเอียดวันที่เข้า-ออก อัตราค่าห้องพัก' },
+                    { id: 'd_trn_9', name: 'ใบเสร็จรับเงินค่าน้ำมันเชื้อเพลิง พร้อมแนบใบขอใช้รถซึ่งระบุหมายเลขทะเบียนรถ และหลักฐานการรับเงินของพนักงานขับรถ', desc: 'กรณีใช้รถยนต์ส่วนราชการ' },
+                    { id: 'd_trn_10', name: 'ใบเสร็จรับเงิน พร้อมแนบเอกสารการจัดซื้อ/จัดจ้าง และใบตรวจรับ', desc: 'กรณีจ้างจัดงาน หรือค่าใช้จ่ายอื่นๆ เป็นไปตามพระราชบัญญัติการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ' }
+                ]
+            },
+            {
+                id: 'exp_ot',
+                name: 'ค่าล่วงเวลา',
+                condition: 'ต้องได้รับอนุมัติจากหัวหน้าส่วนงานก่อนการปฏิบัติงานนอกเวลาปฏิบัติงาน',
+                regulation: '- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์ เงื่อนไขและอัตราการเบิกจ่ายเงินค่าล่วงเวลาแก่บุคลากรมหาวิทยาลัยสงขลานครินทร์\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์ เงื่อนไขและอัตราการเบิกจ่ายเงินค่าล่วงเวลาแก่บุคลากรมหาวิทยาลัยสงขลานครินทร์ (ฉบับที่ 2)',
+                docs: [
+                    { id: 'd_ot_1', name: 'บันทึกขออนุมัติปฏิบัติงานนอกเวลา ระบุเหตุผล ความจำเป็น ภาระงานที่ปฏิบัติ และรายชื่อผู้ปฏิบัติงาน', desc: 'ต้นฉบับที่ได้รับอนุมัติ' },
+                    { id: 'd_ot_2', name: 'หลักฐานการเบิกจ่ายเงินค่าล่วงเวลาของผู้ปฏิบัติงาน', desc: 'มหาวิทยาลัยกำหนด' },
+                    { id: 'd_ot_3', name: 'บัญชีแสดงการปฏิบัติงานล่วงเวลา', desc: 'มหาวิทยาลัยกำหนด' },
+                    { id: 'd_ot_4', name: 'รายงาน TIME STAMP', desc: 'เรียกรายงาน TIME STAMP หรือใบลงเวลาปฏิบัติ (กรณีไม่ได้ลงเวลาในระบบ TIME STAMP)' }
+                ]
+            },
+            {
+                id: 'exp_student',
+                name: 'ค่าตอบแทนนักศึกษาช่วยงาน',
+                condition: 'ต้องได้รับอนุมัติจากหัวหน้าส่วนงานก่อนการปฏิบัติงาน และไม่ตรงกับช่วงเวลาเรียน',
+                regulation: '- ที่ กค 0406.4/ว30 ลงวันที่ 3 เมษายน 2558 เรื่อง การเบิกจ่ายเงินค่าตอบแทนนักเรียน นักศึกษา ที่ช่วยปฏิบัติงานราชการ',
+                docs: [
+                    { id: 'd_std_1', name: 'บันทึกขออนุมัตินักศึกษาช่วยงาน', desc: 'ต้นฉบับที่ได้รับอนุมัติ' },
+                    { id: 'd_std_2', name: 'ใบสำคัญรับเงิน และสำเนาบัตรประชาชน', desc: 'หลักฐานการจ่าย' },
+                    { id: 'd_std_3', name: 'ตารางบันทึกเวลาปฏิบัติงานของนักศึกษา', desc: 'ผู้ควบคุมงานลงนามรับรอง' }
+                ]
+            },
+            {
+                id: 'exp_meeting',
+                name: 'ค่าใช้จ่ายจัดประชุม',
+                condition: 'กรณีประชุมออนล์ไม่สามารถเบิกค่าใช้จ่ายได้',
+                regulation: '- มอ 402.1/67-1023ลงวันที่ 15 มีนาคม 2567 เรื่อง แจ้งแนวปฏิบัติการเบิกจ่ายค่าใช้จ่ายในการประชุมหลักสูตร/ทั่วไป/คณะกรรมการชุดต่าง ๆ ของคณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม\n- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)',
+                docs: [
+                    { id: 'd_mt_1', name: 'บันทึกข้อความขออนุมัติงบประมาณ และหนังสือเชิญประชุม', desc: 'ต้นฉบับที่ได้รับอนุมัติ' },
+                    { id: 'd_mt_2', name: 'ลายมือชื่อผู้เข้าร่วมการประชุม', desc: 'ลงนามตามวันเวลาประชุม' },
+                    { id: 'd_mt_3', name: 'ภาพถ่ายหน้าจอการเข้าร่วม (กรณีออนไลน์)', desc: 'เป็นหลักฐานแสดงผู้เข้าร่วมโครงการ/ประชุม' },
+                    { id: 'd_mt_4', name: 'ใบเสร็จรับเงินหรือใบสำคัญรับเงิน พร้อมแนบสำเนาบัตรประชาชน', desc: 'ใช้สำหรับค่าอาหาร อาหารว่างและเครื่องดื่ม เป็นหลักฐานการจ่ายค่าอาหาร อาหารว่างและเครื่องดื่ม' }
+                ]
+            },
+            {
+                id: 'exp_other',
+                name: 'อื่นๆ',
+                condition: 'ต้องได้รับอนุมัติก่อนเกิดค่าใช้จ่าย',
+                regulation: '- ประกาศมหาวิทยาลัยสงขลานครินทร์ เรื่อง หลักเกณฑ์การปฏิบัติเกี่ยวกับการรับเงิน การจ่ายเงิน และการเก็บรักษาเงิน พ.ศ. 2562 (หมวด 2 ข้อ 19 ใบเสร็จรับเงินที่นำมาเป็นหลักฐานการเบิกจ่าย)\n- พระราชบัญญัติการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ',
+                isOther: true,
+                docs: [
+                    { id: 'd_oth_1', name: 'บันทึกข้อความขออนุมัติงบประมาณ', desc: 'ต้นฉบับที่ได้รับอนุมัติ' },
+                    { id: 'd_oth_2', name: 'ใบเสร็จรับเงิน ใบตรวจรับพัสดุ พร้อมแนบเอกสารที่เกี่ยวข้องในการจัดซื้อ/จัดจ้าง', desc: 'กรณีไม่เป็นร้านเครดิตกับมหาวิทยาลัย และเป็นไปตามพระราชบัญญัติการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ' },
+                    { id: 'd_oth_3', name: 'ใบสำคัญรับเงิน และใบเสร็จรับเงินผู้ให้บริการ', desc: 'กรณีค่าโทรศัพท์สำหรับผู้บริหาร และประธานหลักสูตร ใบแจ้งหนี้ค่าบริการแนบเพิ่มกรณีใบเสร็จรับเงินไม่แสดงเบอร์โทรศัพท์' },
+                    { id: 'd_oth_4', name: 'ใบเสร็จรับเงิน / ใบสำคัญรับเงิน / ใบรับรองแทนใบเสร็จ', desc: 'หลักฐานการจ่าย เป็นไปตามประกาศมหาวิทยาลัย' }
+                ]
+            }
+        ];
+
+        async function initSystem() {
+            renderCheckerDropdown();
+            
+            const currentUrl = localStorage.getItem('googleSheetWebhookUrl');
+            if(!currentUrl) {
+                localStorage.setItem('googleSheetWebhookUrl', DEFAULT_WEB_APP_URL);
+            }
+            const settingUrlInput = document.getElementById('settingWebUrl');
+            if (settingUrlInput) {
+                settingUrlInput.value = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            }
+
+            // โหลดบัญชีผู้ใช้งานจาก ชีต 3 และตรวจสอบสถานะการ Login
+            await loadLocalAndSheet3Users();
+            checkAuthSession();
+
+            // ดึงข้อมูลผู้ขออนุมัติจาก ชีต 2 และล้างฟอร์มเริ่มต้น
+            fetchRequestersFromGoogleSheet(false);
+            resetForm();
+
+            document.addEventListener('click', function(e) {
+                const reqContainer = document.getElementById('requesterInput')?.parentElement;
+                if(reqContainer && !reqContainer.contains(e.target)) {
+                    document.getElementById('requesterDropdownList')?.classList.add('hidden');
+                }
+            });
+        }
+
+        function showCustomAlert(msg) {
+            const modal = document.getElementById('customAlertModal');
+            const msgEl = document.getElementById('customAlertMessage');
+            if (modal && msgEl) {
+                msgEl.innerText = msg;
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeCustomAlert() {
+            const modal = document.getElementById('customAlertModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // โหลดข้อมูลบัญชีผู้ใช้จากความจำเครื่องและอัปเดตจาก คอลัมน์ C ชีต 3
+        async function loadLocalAndSheet3Users() {
+            let localCache = [];
+            const savedUsersStr = localStorage.getItem('psuSheet3UsersCache');
+            if (savedUsersStr) {
+                try {
+                    localCache = JSON.parse(savedUsersStr);
+                    if (Array.isArray(localCache) && localCache.length > 0) {
+                        systemUsers = localCache;
+                    }
+                } catch (e) {}
+            }
+
+            const url = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            if (!url) return;
+            try {
+                // เติม timestamp กัน cache เพื่อให้ได้รหัสผ่านล่าสุดจาก คอลัมน์ C ชีต 3 เสมอ
+                const response = await fetch(`${url}?action=getUsers&_t=${Date.now()}`, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && Array.isArray(data.users) && data.users.length > 0) {
+                        systemUsers = data.users.map(u => {
+                            const uname = u.username.toString().trim();
+                            const sheetPwd = u.password.toString().trim();
+                            const cachedUser = localCache.find(c => c.username.toLowerCase() === uname.toLowerCase());
+                            
+                            // หากใน ชีต 3 ยังเป็น 123456 แต่ในเครื่องเคยเปลี่ยนรหัสใหม่แล้ว ให้ยึดรหัสใหม่และซิงค์กลับไปที่ชีต 3
+                            let finalPwd = sheetPwd;
+                            if (sheetPwd === '123456' && cachedUser && cachedUser.password && cachedUser.password !== '123456') {
+                                finalPwd = cachedUser.password;
+                                syncPasswordToGoogleSheetOnly(uname, finalPwd);
+                            }
+
+                            return {
+                                displayName: u.displayName || (cachedUser ? cachedUser.displayName : uname),
+                                username: uname,
+                                password: finalPwd,
+                                isFirstLogin: (finalPwd === '123456')
+                            };
+                        });
+                        localStorage.setItem('psuSheet3UsersCache', JSON.stringify(systemUsers));
+                    }
+                }
+            } catch (e) {
+                console.log('Using cached/default Sheet 3 users');
+            }
+        }
+
+        // ตรวจสอบสถานะการ Login และเชื่อมโยงผู้ใช้งานเข้ากับช่อง "ผู้ตรวจเอกสาร"
+        function checkAuthSession() {
+            const sessionUser = sessionStorage.getItem('psuChecklistAuthUser');
+            const loginScreen = document.getElementById('loginScreen');
+            if (sessionUser) {
+                const userObj = JSON.parse(sessionUser);
+                loginScreen.classList.add('hidden');
+                document.getElementById('displayUsername').innerText = userObj.displayName || userObj.username;
+                document.getElementById('settingUsername').value = userObj.username;
+                
+                // เชื่อมโยงชื่อผู้ใช้งานที่ Login เข้ากับช่อง "ผู้ตรวจเอกสาร" อัตโนมัติ
+                syncLoggedInUserToChecker(userObj);
+            } else {
+                loginScreen.classList.remove('hidden');
+            }
+        }
+
+        function syncLoggedInUserToChecker(userObj) {
+            const checkerSel = document.getElementById('checkerSelect');
+            if (!checkerSel || !userObj) return;
+
+            const checkerName = (userObj.displayName || '').trim();
+            if (!checkerName) return;
+
+            // ตรวจสอบว่ามีชื่อในตัวเลือกหรือยัง หากยังไม่มีให้เพิ่มเข้าไปอัตโนมัติ
+            let optionExists = false;
+            for (let i = 0; i < checkerSel.options.length; i++) {
+                if (checkerSel.options[i].value === checkerName) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            if (!optionExists) {
+                const opt = document.createElement('option');
+                opt.value = checkerName;
+                opt.text = checkerName;
+                checkerSel.appendChild(opt);
+            }
+
+            checkerSel.value = checkerName;
+        }
+
+        // จัดการการ Login (ดึงรหัสผ่านล่าสุดจาก คอลัมน์ C ชีต 3 มาตรวจสอบก่อนกดเข้าสู่ระบบ)
+        async function handleLogin(event) {
+            event.preventDefault();
+            const userInput = document.getElementById('loginUsername').value.trim().toLowerCase();
+            const passInput = document.getElementById('loginPassword').value.trim();
+            const errorMsg = document.getElementById('loginErrorMsg');
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = '⏳ กำลังตรวจสอบรหัสผ่าน...';
+            }
+
+            // ซิงค์ข้อมูลล่าสุดจาก คอลัมน์ C ชีต 3 ก่อนตรวจสอบรหัสผ่าน
+            await loadLocalAndSheet3Users();
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🔐 เข้าสู่ระบบ';
+            }
+
+            const matchedUser = systemUsers.find(u => u.username.toLowerCase() === userInput && u.password.toString().trim() === passInput);
+
+            if (matchedUser) {
+                errorMsg.classList.add('hidden');
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+
+                // ตรวจสอบว่าเป็นการเข้าใช้งานครั้งแรก (รหัสในคอลัมน์ C ยังเป็น 123456)
+                if (matchedUser.password === '123456' || matchedUser.isFirstLogin) {
+                    pendingFirstLoginUser = matchedUser;
+                    document.getElementById('firstNewPassword').value = '';
+                    document.getElementById('firstConfirmPassword').value = '';
+                    document.getElementById('firstPassErrorMsg').classList.add('hidden');
+                    document.getElementById('firstLoginChangePassModal').classList.remove('hidden');
+                } else {
+                    completeLoginSession(matchedUser);
+                }
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function completeLoginSession(userObj) {
+            sessionStorage.setItem('psuChecklistAuthUser', JSON.stringify(userObj));
+            checkAuthSession();
+            showToast(`ยินดีต้อนรับ ${userObj.displayName}`);
+        }
+
+        // บันทึกรหัสผ่านใหม่เมื่อเข้าสู่ระบบครั้งแรก -> ลงคอลัมน์ C ชีต 3
+        async function handleFirstLoginPasswordChange(event) {
+            event.preventDefault();
+            const newPass = document.getElementById('firstNewPassword').value.trim();
+            const confirmPass = document.getElementById('firstConfirmPassword').value.trim();
+            const errBox = document.getElementById('firstPassErrorMsg');
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+
+            if (newPass === '123456') {
+                errBox.innerText = 'กรุณาตั้งรหัสผ่านใหม่ที่ไม่ซ้ำกับรหัสเริ่มต้น (123456)';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (newPass !== confirmPass) {
+                errBox.innerText = 'รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน กรุณากรอกอีกครั้ง';
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            errBox.classList.add('hidden');
+            if (pendingFirstLoginUser) {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerText = '⏳ กำลังบันทึกรหัสผ่านใหม่ลง ชีต 3...';
+                }
+
+                await updateUserPasswordInSystemAndSheet3(pendingFirstLoginUser.username, newPass);
+                
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '💾 บันทึกรหัสผ่านใหม่และเข้าใช้งาน';
+                }
+
+                pendingFirstLoginUser.password = newPass;
+                pendingFirstLoginUser.isFirstLogin = false;
+                document.getElementById('firstLoginChangePassModal').classList.add('hidden');
+                completeLoginSession(pendingFirstLoginUser);
+                pendingFirstLoginUser = null;
+            }
+        }
+
+        // เปิด-ปิด Modal ลืมรหัสผ่าน
+        function openForgotPasswordModal() {
+            document.getElementById('forgotUsername').value = document.getElementById('loginUsername').value.trim();
+            document.getElementById('forgotNewPassword').value = '';
+            document.getElementById('forgotConfirmPassword').value = '';
+            document.getElementById('forgotErrorMsg').classList.add('hidden');
+            document.getElementById('forgotPasswordModal').classList.remove('hidden');
+        }
+
+        function closeForgotPasswordModal() {
+            document.getElementById('forgotPasswordModal').classList.add('hidden');
+        }
+
+        // จัดการการรีเซ็ตรหัสผ่านกรณีลืมรหัสผ่าน -> อัปเดตลงคอลัมน์ C ชีต 3
+        async function handleForgotPasswordSubmit(event) {
+            event.preventDefault();
+            const uname = document.getElementById('forgotUsername').value.trim().toLowerCase();
+            const newPass = document.getElementById('forgotNewPassword').value.trim();
+            const confirmPass = document.getElementById('forgotConfirmPassword').value.trim();
+            const errBox = document.getElementById('forgotErrorMsg');
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+
+            const userExists = systemUsers.find(u => u.username.toLowerCase() === uname);
+            if (!userExists) {
+                errBox.innerText = 'ไม่พบชื่อผู้ใช้งาน (Username) นี้ในระบบ ชีต 3';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (newPass === '123456') {
+                errBox.innerText = 'กรุณากำหนดรหัสผ่านใหม่ที่ไม่ใช่ 123456';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (newPass !== confirmPass) {
+                errBox.innerText = 'รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน กรุณากรอกอีกครั้ง';
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            errBox.classList.add('hidden');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = '⏳ กำลังบันทึก...';
+            }
+
+            await updateUserPasswordInSystemAndSheet3(userExists.username, newPass);
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '💾 บันทึกรหัสผ่านใหม่';
+            }
+
+            closeForgotPasswordModal();
+            document.getElementById('loginUsername').value = userExists.username;
+            document.getElementById('loginPassword').value = '';
+            showToast('บันทึกรหัสผ่านใหม่ลง คอลัมน์ C ชีต 3 เรียบร้อยแล้ว');
+        }
+
+        // อัปเดตรหัสผ่านใน Cache และส่งบันทึกลง คอลัมน์ C ชีต 3 บน Google Sheets ทันที
+        async function updateUserPasswordInSystemAndSheet3(username, newPassword) {
+            const idx = systemUsers.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+            if (idx > -1) {
+                systemUsers[idx].password = newPassword;
+                systemUsers[idx].isFirstLogin = false;
+                localStorage.setItem('psuSheet3UsersCache', JSON.stringify(systemUsers));
+            }
+
+            await syncPasswordToGoogleSheetOnly(username, newPassword);
+        }
+
+        async function syncPasswordToGoogleSheetOnly(username, newPassword) {
+            const url = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            if (!url) return;
+
+            const queryParams = new URLSearchParams({
+                action: 'updatePassword',
+                username: username,
+                newPassword: newPassword,
+                _t: Date.now().toString()
+            });
+
+            const fullUrl = `${url}?${queryParams.toString()}`;
+
+            try {
+                // ส่งคำขอแบบ GET ปกติเพื่อให้ Apps Script ประมวลผลและรอจนเขียนลง คอลัมน์ C ชีต 3 เสร็จสมบูรณ์
+                await fetch(fullUrl, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+            } catch (e) {
+                // Fallback กรณีติด CORS ให้ยิงซ้ำแบบ no-cors และ Image Beacon
+                try {
+                    const img = new Image();
+                    img.src = fullUrl;
+                    await fetch(fullUrl, { method: 'GET', mode: 'no-cors' });
+                } catch (err) {}
+            }
+        }
+
+        // ออกจากระบบ (คงรหัสผ่านใหม่ที่อัปเดตไว้ใน Cache และ ชีต 3)
+        async function handleLogout() {
+            sessionStorage.removeItem('psuChecklistAuthUser');
+            switchTab('form');
+            await loadLocalAndSheet3Users();
+            checkAuthSession();
+            showToast('ออกจากระบบเรียบร้อยแล้ว');
+        }
+
+        // แสดง/ซ่อน รหัสผ่าน
+        function togglePasswordVisibility(inputId) {
+            const passInput = document.getElementById(inputId);
+            if (passInput) {
+                passInput.type = passInput.type === 'password' ? 'text' : 'password';
+            }
+        }
+
+        // บันทึกรหัสผ่านใหม่ในหน้าตั้งค่า
+        function saveCredentialsSetting() {
+            const targetUsername = document.getElementById('settingUsername').value.trim();
+            const newPassword = document.getElementById('settingNewPassword').value.trim();
+
+            if (!targetUsername || !newPassword) {
+                showCustomAlert('กรุณากรอกรหัสผ่านใหม่ให้ครบถ้วนครับ');
+                return;
+            }
+
+            updateUserPasswordInSystemAndSheet3(targetUsername, newPassword);
+            const sessionUser = JSON.parse(sessionStorage.getItem('psuChecklistAuthUser') || '{}');
+            sessionUser.password = newPassword;
+            sessionUser.isFirstLogin = false;
+            sessionStorage.setItem('psuChecklistAuthUser', JSON.stringify(sessionUser));
+            document.getElementById('settingNewPassword').value = '';
+            showToast('บันทึกรหัสผ่านใหม่ลง ชีต 3 เรียบร้อยแล้ว');
+        }
+
+        async function fetchRequestersFromGoogleSheet(notify = false) {
+            const url = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            if (!url) return;
+            try {
+                const response = await fetch(url + '?action=getRequesters');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && Array.isArray(data.requesters)) {
+                        const uniqueMap = new Map();
+                        data.requesters.forEach(item => {
+                            const name = (typeof item === 'object' ? item.name : item || '').trim();
+                            const position = (typeof item === 'object' ? item.position : '' || '').trim();
+                            if (name && !uniqueMap.has(name)) {
+                                uniqueMap.set(name, { name, position });
+                            }
+                        });
+                        requesters = Array.from(uniqueMap.values());
+                        renderRequesterDropdown(requesters);
+                        if (notify) showToast(`ดึงข้อมูลรายชื่อผู้ขออนุมัติจากชีต 2 จำนวน ${requesters.length} รายการเรียบร้อยแล้ว`);
+                    }
+                }
+            } catch (e) {
+                console.log('Fetching Sheet 2 fallback logic');
+            }
+        }
+
+        function renderRequesterDropdown(list) {
+            const dropdown = document.getElementById('requesterDropdownList');
+            if(!dropdown) return;
+            dropdown.innerHTML = '';
+            
+            if (list.length === 0) {
+                dropdown.innerHTML = `<div class="p-3 text-slate-400 text-center">ไม่พบข้อมูลผู้ขออนุมัติในชีต 2</div>`;
+                return;
+            }
+
+            list.forEach(item => {
+                const reqName = item.name;
+                const reqPos = item.position || '';
+                dropdown.innerHTML += `
+                    <div onclick="selectRequester('${reqName.replace(/'/g, "\\'")}', '${reqPos.replace(/'/g, "\\'")}')" class="p-2.5 hover:bg-purple-50 cursor-pointer transition flex justify-between items-center border-b border-slate-50 last:border-b-0">
+                        <span class="font-medium text-slate-800">${reqName}</span>
+                        ${reqPos ? `<span class="text-[10px] bg-purple-100 text-psuPurple px-2 py-0.5 rounded-full font-semibold">${reqPos}</span>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        function filterRequesterDropdown() {
+            const val = document.getElementById('requesterInput').value.toLowerCase();
+            const filtered = requesters.filter(r => r.name.toLowerCase().includes(val) || (r.position && r.position.toLowerCase().includes(val)));
+            renderRequesterDropdown(filtered);
+            document.getElementById('requesterDropdownList').classList.remove('hidden');
+        }
+
+        function showRequesterDropdown() {
+            renderRequesterDropdown(requesters);
+            document.getElementById('requesterDropdownList').classList.remove('hidden');
+        }
+
+        function selectRequester(name, position) {
+            document.getElementById('requesterInput').value = name;
+            document.getElementById('requesterPositionInput').value = position || '';
+            document.getElementById('requesterDropdownList').classList.add('hidden');
+        }
+
+        function renderCheckerDropdown() {
+            const select = document.getElementById('checkerSelect');
+            if(!select) return;
+            select.innerHTML = '<option value="">-- เลือกผู้ตรวจเอกสาร --</option>';
+            checkers.forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function updateChecklists() {
+            const container = document.getElementById('dynamicChecklistsArea');
+            const selectedCheckboxes = document.querySelectorAll('input[name="expenseType"]:checked');
+            const otherWrapper = document.getElementById('otherDetailsWrapper');
+            
+            let isOtherChecked = false;
+            selectedCheckboxes.forEach(cb => {
+                if(cb.value === 'exp_other') isOtherChecked = true;
+            });
+
+            if (otherWrapper) {
+                if (isOtherChecked) {
+                    otherWrapper.classList.remove('hidden');
+                } else {
+                    otherWrapper.classList.add('hidden');
+                }
+            }
+
+            if (selectedCheckboxes.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-sm">
+                        👈 กรุณาติ๊กเลือกประเภทค่าใช้จ่ายด้านบน เพื่อแสดงรายการเอกสารเช็คลิสที่ต้องแนบ
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+
+            selectedCheckboxes.forEach(cb => {
+                const expObj = expenseData.find(e => e.id === cb.value);
+                if (!expObj) return;
+
+                let title = expObj.name;
+                if(expObj.isOther) {
+                    const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                    if(detail) title += ` (${detail})`;
+                }
+
+                let html = `
+                    <div class="expense-card border border-slate-200 rounded-2xl p-6 bg-white shadow-sm transition hover:shadow-md">
+                        <div class="flex justify-between items-start mb-4 border-b border-slate-100 pb-3">
+                            <h3 class="text-base sm:text-lg font-bold text-psuNavy flex items-center gap-2">
+                                📌 ${title}
+                            </h3>
+                            <button type="button" onclick="checkAllDocsInCard('${expObj.id}', true)" class="text-xs bg-purple-100 text-psuPurple px-3 py-1.5 rounded-lg font-bold hover:bg-psuPurple hover:text-white transition">
+                                ☑️ เลือกทั้งหมด
+                            </button>
+                        </div>
+                        
+                        <div class="text-xs text-slate-600 bg-slate-50 p-3.5 rounded-xl mb-4 space-y-1 border border-slate-100">
+                            <p><strong>เงื่อนไข:</strong> ${expObj.condition}</p>
+                            <p class="whitespace-pre-line"><strong>ระเบียบอ้างอิง:</strong> ${expObj.regulation}</p>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs sm:text-sm border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 border-b border-slate-200 text-slate-700">
+                                        <th class="p-3 w-12 text-center">เลือก</th>
+                                        <th class="p-3 font-bold">รายการเอกสารหลักฐาน</th>
+                                        <th class="p-3 font-bold">รายละเอียดคำแนะนำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                `;
+
+                expObj.docs.forEach((doc) => {
+                    html += `
+                        <tr class="doc-row-item transition hover:bg-purple-50/40" id="row_${doc.id}">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" id="${doc.id}" data-expid="${expObj.id}" data-docname="${doc.name}" class="card-doc-checkbox-${expObj.id} h-4 w-4 text-psuPurple rounded border-slate-300 focus:ring-psuPurple cursor-pointer">
+                            </td>
+                            <td class="p-3 font-semibold text-slate-800">${doc.name}</td>
+                            <td class="p-3 text-xs text-slate-500">${doc.desc}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML += html;
+            });
+        }
+
+        function checkAllDocsInCard(expId, state) {
+            const checkboxes = document.querySelectorAll(`.card-doc-checkbox-${expId}`);
+            checkboxes.forEach(cb => {
+                cb.checked = state;
+            });
+        }
+
+        // ฟังก์ชันแปลงวันที่จาก YYYY-MM-DD เป็นรูปแบบ วันที่ เดือน พ.ศ. (เช่น 26 พฤศจิกายน 2569)
+        function formatThaiFullDate(dateStr) {
+            if (!dateStr || dateStr === '-') return '-';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            
+            const thaiMonths = [
+                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+            ];
+            
+            const yearAD = parseInt(parts[0], 10);
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            
+            if (isNaN(yearAD) || isNaN(monthIdx) || isNaN(day) || monthIdx < 0 || monthIdx > 11) {
+                return dateStr;
+            }
+            
+            const yearBE = yearAD + 543;
+            return `${day} ${thaiMonths[monthIdx]} ${yearBE}`;
+        }
+
+        function triggerPrintModal() {
+            const approvalNo = document.getElementById('approvalNo').value.trim() || '-';
+            const rawDueDate = document.getElementById('dueDate').value;
+            const dueDate = formatThaiFullDate(rawDueDate);
+            const requester = document.getElementById('requesterInput').value.trim() || '..........................................................';
+            const requesterPosition = document.getElementById('requesterPositionInput').value.trim() || '..........................................................';
+            const checker = document.getElementById('checkerSelect').value || '..........................................................';
+            const note = document.getElementById('officerNote').value.trim();
+
+            const selectedExpenseCategories = document.querySelectorAll('input[name="expenseType"]:checked');
+
+            if (selectedExpenseCategories.length === 0) {
+                showCustomAlert('กรุณาเลือกประเภทค่าใช้จ่าย และติ๊กรายการเอกสารที่แนบก่อนสั่งพิมพ์ครับ');
+                return;
+            }
+
+            let printedCardsHTML = '';
+            let totalCheckedItemsCount = 0;
+
+            selectedExpenseCategories.forEach(cb => {
+                const expObj = expenseData.find(e => e.id === cb.value);
+                if (!expObj) return;
+
+                const checkedDocsInCat = [];
+                expObj.docs.forEach(doc => {
+                    const el = document.getElementById(doc.id);
+                    if (el && el.checked) {
+                        checkedDocsInCat.push(doc);
+                    }
+                });
+
+                if (checkedDocsInCat.length > 0) {
+                    totalCheckedItemsCount += checkedDocsInCat.length;
+
+                    let catTitle = expObj.name;
+                    if (expObj.isOther) {
+                        const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                        if (detail) catTitle += ` (${detail})`;
+                    }
+
+                    let rowsHTML = '';
+                    checkedDocsInCat.forEach(doc => {
+                        rowsHTML += `
+                            <tr style="border-bottom: 1px solid #E2E8F0;">
+                                <td style="padding: 10px 8px; text-align: center; width: 50px;">
+                                    <div style="width: 18px; height: 18px; border: 1.5px solid #334155; border-radius: 3px; margin: 0 auto;"></div>
+                                </td>
+                                <td style="padding: 10px 8px; font-weight: 600; color: #1E293B; vertical-align: middle; font-size: 13px;">${doc.name}</td>
+                                <td style="padding: 10px 8px; font-size: 12px; color: #64748B; vertical-align: middle;">${doc.desc}</td>
+                            </tr>
+                        `;
+                    });
+
+                    printedCardsHTML += `
+                        <div style="border: 1px solid #CBD5E1; border-radius: 12px; padding: 18px; margin-bottom: 20px; page-break-inside: avoid; background: #FFF;">
+                            <h3 style="font-size: 15px; font-weight: bold; color: #334155; margin: 0 0 8px 0;">
+                                📌 ${catTitle}
+                            </h3>
+                            <div style="font-size: 11px; color: #64748B; margin-bottom: 12px; line-height: 1.5;">
+                                <p style="margin: 0 0 2px 0;"><strong>เงื่อนไข:</strong> ${expObj.condition}</p>
+                                <p style="margin: 0;"><strong>ระเบียบอ้างอิง:</strong> ${expObj.regulation.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="border-bottom: 1.5px solid #CBD5E1; text-align: left; color: #334155; background-color: #F8FAFC;">
+                                        <th style="padding: 8px; text-align: center; width: 50px; font-weight: bold;">เลือก</th>
+                                        <th style="padding: 8px; font-weight: bold;">รายการเอกสารหลักฐาน</th>
+                                        <th style="padding: 8px; font-weight: bold;">รายละเอียดคำแนะนำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            });
+
+            if (totalCheckedItemsCount === 0) {
+                showCustomAlert('กรุณาติ๊กเลือกรายการเอกสารหลักฐานอย่างน้อย 1 รายการเพื่อออกรายงาน A4 ครับ');
+                return;
+            }
+
+            const fullA4PrintHTML = `
+                <!DOCTYPE html>
+                <html lang="th">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>แบบแจ้งการแนบหลักฐานทางการเงินประกอบการเบิกจ่าย - ${approvalNo}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        body {
+                            font-family: 'Sarabun', sans-serif;
+                            padding: 30px 40px;
+                            color: #0F172A;
+                            line-height: 1.4;
+                            background: #FFFFFF;
+                        }
+                        .header-title {
+                            text-align: center;
+                            margin-bottom: 25px;
+                            border-bottom: 2px solid #1E293B;
+                            padding-bottom: 14px;
+                        }
+                        .header-title h1 {
+                            font-size: 13px;
+                            font-weight: bold;
+                            color: #475569;
+                            margin: 0 0 4px 0;
+                        }
+                        .header-title h2 {
+                            font-size: 20px;
+                            font-weight: bold;
+                            color: #0F172A;
+                            margin: 0;
+                        }
+                        .info-grid {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 10px 20px;
+                            font-size: 13px;
+                            border: 1px solid #E2E8F0;
+                            border-radius: 12px;
+                            padding: 14px 20px;
+                            margin-bottom: 22px;
+                            background: #FFFFFF;
+                        }
+                        .footer-signatures {
+                            margin-top: 45px;
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            text-align: center;
+                            font-size: 13px;
+                            page-break-inside: avoid;
+                        }
+                        @media print {
+                            body { padding: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header-title">
+                        <h1>คณะวิทยาศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยสงขลานครินทร์</h1>
+                        <h2>แบบแจ้งการแนบหลักฐานทางการเงินประกอบการเบิกจ่าย</h2>
+                    </div>
+
+                    <div class="info-grid">
+                        <div><strong>เลขที่ขออนุมัติ:</strong> ${approvalNo}</div>
+                        <div><strong>กำหนดส่งเอกสารเบิกจ่ายไม่เกินวันที่:</strong> ${dueDate}</div>
+                        <div><strong>ผู้ขออนุมัติ:</strong> ${requester}</div>
+                        <div><strong>ผู้ตรวจเอกสาร:</strong> ${checker}</div>
+                    </div>
+
+                    ${printedCardsHTML}
+
+                    ${note ? `<div style="font-size: 12px; border: 1px solid #CBD5E1; padding: 12px; border-radius: 8px; margin-top: 15px;"><strong>หมายเหตุเพิ่มเติม:</strong> ${note}</div>` : ''}
+
+                    <div class="footer-signatures">
+                        <div>
+                            <p style="margin-bottom: 45px; font-weight: bold; color: #334155;">ลงชื่อ..........................................................ผู้ส่งเอกสาร</p>
+                            <p style="font-weight: 700; color: #0F172A; margin: 0;">(${requester})</p>
+                            <p style="color: #64748B; margin: 4px 0 0 0;">ตำแหน่ง ${requesterPosition}</p>
+                        </div>
+                        <div>
+                            <p style="margin-bottom: 45px; font-weight: bold; color: #334155;">ลงชื่อ..........................................................ผู้ตรวจเอกสาร</p>
+                            <p style="font-weight: 700; color: #0F172A; margin: 0;">(${checker})</p>
+                            <p style="color: #64748B; margin: 4px 0 0 0;">เจ้าหน้าที่ผู้รับผิดชอบงานการเงินและพัสดุ</p>
+                        </div>
+                    </div>
+
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                            }, 300);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            const printWin = window.open('', '_blank', 'width=900,height=800');
+            if (printWin) {
+                printWin.document.open();
+                printWin.document.write(fullA4PrintHTML);
+                printWin.document.close();
+            } else {
+                showCustomAlert('เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป (Pop-up) กรุณาอนุญาตป๊อปอัปสำหรับเว็บไซต์นี้เพื่อเปิดหน้าพิมพ์ครับ');
+            }
+        }
+
+        async function saveRecord() {
+            const approvalNo = document.getElementById('approvalNo').value.trim();
+            const dueDate = document.getElementById('dueDate').value;
+            const requester = document.getElementById('requesterInput').value.trim();
+            const requesterPosition = document.getElementById('requesterPositionInput').value.trim();
+            const checker = document.getElementById('checkerSelect').value;
+            const note = document.getElementById('officerNote').value.trim();
+
+            if (!approvalNo || !dueDate || !requester || !checker) {
+                showCustomAlert('กรุณากรอกข้อมูลการขออนุมัติเบิกจ่าย (เลขที่ขออนุมัติ, กำหนดส่ง, ผู้ขออนุมัติ และผู้ตรวจ) ให้ครบถ้วนก่อนบันทึกครับ');
+                return;
+            }
+
+            const checkedExpTypes = [];
+            document.querySelectorAll('input[name="expenseType"]:checked').forEach(cb => {
+                const expObj = expenseData.find(e => e.id === cb.value);
+                if (expObj) {
+                    let name = expObj.name;
+                    if(expObj.isOther) {
+                        const detail = document.getElementById('otherExpenseDetail')?.value.trim();
+                        if(detail) name += ` (${detail})`;
+                    }
+                    checkedExpTypes.push(name);
+                }
+            });
+
+            const checkedDocs = [];
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                if(cb.dataset && cb.dataset.docname) {
+                    checkedDocs.push(cb.dataset.docname);
+                }
+            });
+
+            const url = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            if (url) {
+                try {
+                    const queryParams = new URLSearchParams({
+                        timestamp: new Date().toLocaleString('th-TH'),
+                        approvalNo: approvalNo,
+                        dueDate: dueDate,
+                        requester: `${requester} (${requesterPosition || '-'})`,
+                        checker: checker,
+                        expenseTypes: checkedExpTypes.join(', '),
+                        checkedDocuments: checkedDocs.join(', '),
+                        officerNote: note
+                    });
+
+                    const img = new Image();
+                    img.src = `${url}?${queryParams.toString()}`;
+
+                    fetch(url, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: queryParams.toString()
+                    });
+                } catch(e) {
+                    console.log('Error posting to Google Sheets:', e);
+                }
+            }
+
+            showToast('บันทึกข้อมูลเข้า Google Sheets (ชีต1) เรียบร้อยแล้ว');
+        }
+
+        function resetForm() {
+            document.getElementById('approvalNo').value = '';
+            document.getElementById('dueDate').value = '';
+            document.getElementById('requesterInput').value = '';
+            document.getElementById('requesterPositionInput').value = '';
+            document.getElementById('officerNote').value = '';
+            document.querySelectorAll('input[name="expenseType"]').forEach(cb => cb.checked = false);
+            updateChecklists();
+
+            // คงค่าผู้ตรวจเอกสารตามบัญชีผู้ใช้งานที่ Login อยู่เสมอ
+            const sessionUserStr = sessionStorage.getItem('psuChecklistAuthUser');
+            if (sessionUserStr) {
+                try {
+                    const userObj = JSON.parse(sessionUserStr);
+                    syncLoggedInUserToChecker(userObj);
+                } catch (e) {}
+            } else {
+                document.getElementById('checkerSelect').value = '';
+            }
+        }
+
+        function switchTab(tab) {
+            const secForm = document.getElementById('sectionForm');
+            const secSettings = document.getElementById('sectionSettings');
+            const btnForm = document.getElementById('tabFormBtn');
+            const btnSettings = document.getElementById('tabSettingsBtn');
+
+            if (secForm) secForm.classList.add('hidden');
+            if (secSettings) secSettings.classList.add('hidden');
+
+            const inactiveClass = "px-4 py-2 rounded-xl font-medium text-slate-200 hover:bg-white/10 hover:text-white flex items-center space-x-1.5 transition";
+            const activeClass = "px-4 py-2 rounded-xl font-medium bg-psuPurple text-white shadow border border-psuPurple/30 flex items-center space-x-1.5 transition";
+
+            if (btnForm) btnForm.className = inactiveClass;
+            if (btnSettings) btnSettings.className = inactiveClass;
+
+            if (tab === 'form') {
+                if (secForm) secForm.classList.remove('hidden');
+                if (btnForm) btnForm.className = activeClass;
+            } else if (tab === 'settings') {
+                if (secSettings) secSettings.classList.remove('hidden');
+                if (btnSettings) btnSettings.className = activeClass;
+            }
+        }
+
+        function saveWebUrlSetting() {
+            const url = document.getElementById('settingWebUrl').value.trim();
+            localStorage.setItem('googleSheetWebhookUrl', url);
+            showToast('บันทึก Web App URL เรียบร้อยแล้ว');
+            fetchRequestersFromGoogleSheet(true);
+        }
+
+        function openAddRequesterModal() {
+            document.getElementById('addRequesterModal').classList.remove('hidden');
+        }
+
+        function closeAddRequesterModal() {
+            document.getElementById('addRequesterModal').classList.add('hidden');
+        }
+
+        async function saveNewRequester() {
+            const newName = document.getElementById('newRequesterNameInput').value.trim();
+            const newPos = document.getElementById('newRequesterPositionInput').value.trim();
+
+            if(!newName) {
+                showCustomAlert('กรุณากรอกชื่อ-นามสกุลก่อนบันทึกครับ');
+                return;
+            }
+            
+            // ป้องกันรายชื่อซ้ำในหน้าเว็บ
+            const existingIndex = requesters.findIndex(r => r.name === newName);
+            if (existingIndex > -1) {
+                showCustomAlert(`รายชื่อ "${newName}" มีอยู่ในฐานข้อมูล (ชีต 2) แล้ว ระบบจะดึงข้อมูลที่มีอยู่มาใช้งานครับ`);
+                document.getElementById('requesterInput').value = requesters[existingIndex].name;
+                document.getElementById('requesterPositionInput').value = newPos || requesters[existingIndex].position;
+                closeAddRequesterModal();
+                return;
+            }
+
+            requesters.push({ name: newName, position: newPos });
+            document.getElementById('requesterInput').value = newName;
+            document.getElementById('requesterPositionInput').value = newPos;
+
+            closeAddRequesterModal();
+            document.getElementById('newRequesterNameInput').value = '';
+            document.getElementById('newRequesterPositionInput').value = '';
+            
+            const url = localStorage.getItem('googleSheetWebhookUrl') || DEFAULT_WEB_APP_URL;
+            if(url) {
+                try {
+                    const queryParams = new URLSearchParams({
+                        action: 'addRequester',
+                        requesterName: newName,
+                        requesterPosition: newPos
+                    });
+
+                    const img = new Image();
+                    img.src = `${url}?${queryParams.toString()}`;
+
+                    fetch(url, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: queryParams.toString()
+                    });
+                } catch(err) {
+                    console.log('Error syncing new requester to sheet2:', err);
+                }
+            }
+
+            showToast(`เพิ่มรายชื่อ ${newName} และบันทึกลง ชีต2 เรียบร้อยแล้ว`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

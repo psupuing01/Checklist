@@ -263,12 +263,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">เลขที่ขออนุมัติ <span class="text-red-500">*</span></label>
-                        <input type="text" id="approvalNo" placeholder="เช่น 402.1/69-9999" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                        <input type="text" id="approvalNo" placeholder="เช่น 402.1/69-9999" oninput="markFormDirty()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">กำหนดส่งเอกสารเบิกจ่ายไม่เกินวันที่ <span class="text-red-500">*</span></label>
-                        <input type="date" id="dueDate" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
+                        <input type="date" id="dueDate" onchange="markFormDirty()" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition">
                     </div>
 
                     <div class="relative">
@@ -288,7 +288,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1.5">ตำแหน่งผู้ขออนุมัติ <span class="text-[10px] text-psuPurple font-normal">(ดึงจากชีต 2)</span></label>
-                        <input type="text" id="requesterPositionInput" placeholder="ตำแหน่งจะแสดงอัตโนมัติตามชีต 2" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition" oninput="updatePrintFooter()">
+                        <input type="text" id="requesterPositionInput" placeholder="ตำแหน่งจะแสดงอัตโนมัติตามชีต 2" class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-psuPurple focus:border-psuPurple outline-none transition" oninput="markFormDirty(); updatePrintFooter()">
                     </div>
 
                     <div class="md:col-span-2">
@@ -353,7 +353,7 @@
             <!-- Officer Note Section -->
             <div id="officerNoteContainer" class="bg-slate-50 p-5 rounded-2xl border border-slate-200 mb-8">
                 <label class="block text-xs font-bold text-slate-700 mb-1.5">หมายเหตุเพิ่มเติม (สำหรับเจ้าหน้าที่/ผู้ขออนุมัติ)</label>
-                <textarea id="officerNote" rows="2" placeholder="กรอกข้อความระบุหมายเหตุหรือคำแนะนำเพิ่มเติม..." oninput="updatePrintFooter()" class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple focus:border-psuPurple outline-none bg-white"></textarea>
+                <textarea id="officerNote" rows="2" placeholder="กรอกข้อความระบุหมายเหตุหรือคำแนะนำเพิ่มเติม..." oninput="markFormDirty(); updatePrintFooter()" class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-psuPurple focus:border-psuPurple outline-none bg-white"></textarea>
             </div>
 
             <!-- Action Buttons Footer -->
@@ -361,11 +361,11 @@
                 <button type="button" onclick="resetForm()" class="px-5 py-2.5 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold transition">
                     🧹 ล้างฟอร์ม
                 </button>
-                <div class="flex items-center space-x-3">
+                <div class="flex flex-wrap items-center gap-3">
                     <button type="button" id="btnSaveRecord" onclick="saveRecord()" class="px-6 py-2.5 bg-psuNavy text-white hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-1.5">
                         <span>💾 บันทึกข้อมูลเข้า Google Sheets</span>
                     </button>
-                    <button type="button" onclick="generatePrintView()" class="px-6 py-2.5 bg-psuPurple text-white hover:bg-psuPurpleHover rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-1.5">
+                    <button type="button" id="btnPrintDoc" onclick="generatePrintView()" class="px-6 py-2.5 bg-slate-300 text-slate-500 cursor-not-allowed rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5" title="กรุณากดบันทึกข้อมูลก่อนสั่งพิมพ์เอกสาร A4">
                         <span>🖨 พิมพ์เอกสาร A4</span>
                     </button>
                 </div>
@@ -524,6 +524,7 @@
         let systemUsers = [...DEFAULT_SHEET3_USERS];
         let currentLoggedInUser = null;
         let pendingFirstLoginUser = null;
+        let isCurrentRecordSaved = false;
 
         // ฐานข้อมูลผู้ขออนุมัติในเครื่อง (ยึดจาก ชีต 2 เป็นหลัก)
         let requesters = [];
@@ -639,6 +640,25 @@
         // ฟังก์ชันดึงข้อมูลจากฐานข้อมูลฝังถาวรตาม ID ป้องกันข้อมูลสูญหาย
         function getEmbeddedExpenseById(expId) {
             return EXPENSE_MASTER_DB.find(item => item.id === expId) || null;
+        }
+
+        function updatePrintButtonUI() {
+            const btnPrint = document.getElementById('btnPrintDoc');
+            if (!btnPrint) return;
+            if (isCurrentRecordSaved) {
+                btnPrint.className = "px-6 py-2.5 bg-psuPurple text-white hover:bg-psuPurpleHover rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center space-x-1.5 cursor-pointer";
+                btnPrint.title = "พร้อมพิมพ์เอกสาร A4 เฉพาะรายการที่เลือก";
+            } else {
+                btnPrint.className = "px-6 py-2.5 bg-slate-300 text-slate-500 cursor-not-allowed rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5";
+                btnPrint.title = "กรุณากดบันทึกข้อมูลก่อนสั่งพิมพ์เอกสาร A4";
+            }
+        }
+
+        function markFormDirty() {
+            if (isCurrentRecordSaved) {
+                isCurrentRecordSaved = false;
+                updatePrintButtonUI();
+            }
         }
 
         function showCustomAlert(title, message) {
@@ -1078,6 +1098,7 @@
         }
 
         function filterRequesterDropdown() {
+            markFormDirty();
             const val = document.getElementById('requesterInput').value.toLowerCase();
             const filtered = requesters.filter(r => r.name.toLowerCase().includes(val) || (r.position && r.position.toLowerCase().includes(val)));
             renderRequesterDropdown(filtered);
@@ -1091,6 +1112,7 @@
         }
 
         function selectRequester(name, position) {
+            markFormDirty();
             document.getElementById('requesterInput').value = name;
             document.getElementById('requesterPositionInput').value = position || '';
             document.getElementById('requesterDropdownList').classList.add('hidden');
@@ -1113,10 +1135,14 @@
             if (currentVal) {
                 select.value = currentVal;
             }
-            select.onchange = updatePrintFooter;
+            select.onchange = function() {
+                markFormDirty();
+                updatePrintFooter();
+            };
         }
 
         function updateChecklists() {
+            markFormDirty();
             const container = document.getElementById('dynamicChecklistsArea');
             const selectedCheckboxes = document.querySelectorAll('input[name="expenseType"]:checked');
             const otherWrapper = document.getElementById('otherDetailsWrapper');
@@ -1220,6 +1246,7 @@
         }
 
         function toggleDocRow(docId) {
+            markFormDirty();
             const cb = document.getElementById(docId);
             const row = document.getElementById(`row_${docId}`);
             if (cb && row) {
@@ -1285,6 +1312,11 @@
         }
 
         function generatePrintView() {
+            if (!isCurrentRecordSaved) {
+                showCustomAlert('กรุณาบันทึกข้อมูลก่อนพิมพ์', 'ระบบกำหนดให้ต้องกดปุ่ม "💾 บันทึกข้อมูลเข้า Google Sheets" ก่อนจึงจะสามารถสั่งพิมพ์เอกสาร A4 ได้ครับ');
+                return;
+            }
+
             switchTab('form');
             updatePrintFooter();
 
@@ -1301,9 +1333,11 @@
             const selectedCheckboxes = document.querySelectorAll('input[name="expenseType"]:checked');
 
             if (selectedCheckboxes.length === 0) {
-                showCustomAlert('ไม่สามารถพิมพ์เอกสารได้', 'กรุณาเลือกประเภทค่าใช้จ่าย และติ๊กรายการเอกสารที่ต้องการพิมพ์ก่อนครับ');
+                showCustomAlert('ไม่สามารถพิมพ์เอกสารได้', 'กรุณาเลือกประเภทค่าใช้จ่าย และติ๊กรายการเอกสารหลักฐานที่ต้องการพิมพ์ก่อนครับ');
                 return;
             }
+
+            let totalCheckedDocsCount = 0;
 
             selectedCheckboxes.forEach(cb => {
                 const expObj = getEmbeddedExpenseById(cb.value);
@@ -1315,43 +1349,55 @@
                     if (detail) title += ` (${detail})`;
                 }
 
+                // กรองแสดงผลลัพธ์เฉพาะรายการเอกสารหลักฐานที่ติ๊กเลือกไว้เท่านั้น
                 let docsRowsHtml = '';
-                expObj.docs.forEach((doc) => {
-                    docsRowsHtml += `
-                        <tr style="border-bottom: 1px solid #e2e8f0;">
-                            <td style="padding: 8px; text-align: center; width: 45px;">
-                                <div style="width: 16px; height: 16px; border: 1.5px solid #334155; border-radius: 3px; margin: 0 auto;"></div>
-                            </td>
-                            <td style="padding: 8px; font-weight: 600; color: #1e293b; vertical-align: top;">${doc.name}</td>
-                            <td style="padding: 8px; font-size: 11px; color: #475569; vertical-align: top; white-space: pre-line;">${doc.desc}</td>
-                        </tr>
-                    `;
+                expObj.docs.forEach((doc, idx) => {
+                    const docCheckbox = document.getElementById(`${expObj.id}_doc_${idx}`);
+                    if (docCheckbox && docCheckbox.checked) {
+                        totalCheckedDocsCount++;
+                        docsRowsHtml += `
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td style="padding: 8px; text-align: center; width: 45px;">
+                                    <div style="width: 16px; height: 16px; border: 1.5px solid #334155; border-radius: 3px; margin: 0 auto;"></div>
+                                </td>
+                                <td style="padding: 8px; font-weight: 600; color: #1e293b; vertical-align: top;">${doc.name}</td>
+                                <td style="padding: 8px; font-size: 11px; color: #475569; vertical-align: top; white-space: pre-line;">${doc.desc}</td>
+                            </tr>
+                        `;
+                    }
                 });
 
-                printItemsHtml += `
-                    <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; page-break-inside: avoid; background: #fff;">
-                        <h3 style="font-size: 14px; font-weight: bold; color: #1E2B58; margin: 0 0 6px 0;">
-                            📌 ${title}
-                        </h3>
-                        <div style="font-size: 11px; color: #475569; margin-bottom: 10px; line-height: 1.4;">
-                            <p style="margin: 0 0 2px 0;"><strong>เงื่อนไข:</strong> ${expObj.condition}</p>
-                            <p style="margin: 0; white-space: pre-line;"><strong>ระเบียบอ้างอิง:</strong> ${expObj.regulation}</p>
+                if (docsRowsHtml !== '') {
+                    printItemsHtml += `
+                        <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px; page-break-inside: avoid; background: #fff;">
+                            <h3 style="font-size: 14px; font-weight: bold; color: #1E2B58; margin: 0 0 6px 0;">
+                                📌 ${title}
+                            </h3>
+                            <div style="font-size: 11px; color: #475569; margin-bottom: 10px; line-height: 1.4;">
+                                <p style="margin: 0 0 2px 0;"><strong>เงื่อนไข:</strong> ${expObj.condition}</p>
+                                <p style="margin: 0; white-space: pre-line;"><strong>ระเบียบอ้างอิง:</strong> ${expObj.regulation}</p>
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="border-bottom: 1.5px solid #cbd5e1; text-align: left; color: #334155; background: #f8fafc;">
+                                        <th style="padding: 6px 8px; text-align: center; width: 45px; font-weight: bold;">เลือก</th>
+                                        <th style="padding: 6px 8px; font-weight: bold; width: 42%;">รายการเอกสารหลักฐาน</th>
+                                        <th style="padding: 6px 8px; font-weight: bold;">รายละเอียดคำแนะนำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${docsRowsHtml}
+                                </tbody>
+                            </table>
                         </div>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                            <thead>
-                                <tr style="border-bottom: 1.5px solid #cbd5e1; text-align: left; color: #334155; background: #f8fafc;">
-                                    <th style="padding: 6px 8px; text-align: center; width: 45px; font-weight: bold;">เลือก</th>
-                                    <th style="padding: 6px 8px; font-weight: bold; width: 42%;">รายการเอกสารหลักฐาน</th>
-                                    <th style="padding: 6px 8px; font-weight: bold;">รายละเอียดคำแนะนำ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${docsRowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+                    `;
+                }
             });
+
+            if (totalCheckedDocsCount === 0 || printItemsHtml === '') {
+                showCustomAlert('ยังไม่ได้เลือกรายการเอกสารหลักฐาน', 'กรุณาติ๊กเลือกรายการเอกสารหลักฐานอย่างน้อย 1 รายการ และกดบันทึกข้อมูลก่อนสั่งพิมพ์ครับ');
+                return;
+            }
 
             const printDocumentHTML = `
                 <!DOCTYPE html>
@@ -1433,9 +1479,11 @@
             }
 
             const checkedExpTypes = [];
+            const selectedExpIds = [];
             document.querySelectorAll('input[name="expenseType"]:checked').forEach(cb => {
                 const expObj = getEmbeddedExpenseById(cb.value);
                 if (expObj) {
+                    selectedExpIds.push(cb.value);
                     let name = expObj.name;
                     if (expObj.isOther) {
                         const detail = document.getElementById('otherExpenseDetail')?.value.trim();
@@ -1445,14 +1493,26 @@
                 }
             });
 
+            if (checkedExpTypes.length === 0) {
+                showCustomAlert('ยังไม่ได้เลือกประเภทค่าใช้จ่าย', 'กรุณาเลือกประเภทค่าใช้จ่ายอย่างน้อย 1 รายการก่อนบันทึกครับ');
+                return;
+            }
+
             const checkedDocs = [];
+            const checkedDocIds = [];
             document.querySelectorAll('.web-checkbox-input:checked').forEach(cb => {
+                checkedDocIds.push(cb.id);
                 const row = cb.closest('tr');
                 if (row) {
                     const docName = row.querySelector('td:nth-child(2)')?.innerText;
                     if (docName) checkedDocs.push(docName);
                 }
             });
+
+            if (checkedDocs.length === 0) {
+                showCustomAlert('ยังไม่ได้เลือกรายการเอกสารหลักฐาน', 'กรุณาติ๊กเลือกรายการเอกสารหลักฐานอย่างน้อย 1 รายการก่อนบันทึกครับ');
+                return;
+            }
 
             const recordObj = {
                 id: 'REC_' + Date.now(),
@@ -1464,6 +1524,9 @@
                 checker,
                 expenseTypes: checkedExpTypes.join(', '),
                 checkedDocuments: checkedDocs.join(', '),
+                selectedExpIds,
+                checkedDocIds,
+                otherExpenseDetail: document.getElementById('otherExpenseDetail')?.value.trim() || '',
                 officerNote: note
             };
 
@@ -1499,7 +1562,9 @@
                 }
             }
 
-            showToast('บันทึกข้อมูลเข้า Google Sheets (ชีต1) และความจำเครื่องเรียบร้อยแล้ว');
+            isCurrentRecordSaved = true;
+            updatePrintButtonUI();
+            showToast('บันทึกข้อมูลสำเร็จ! สามารถกดปุ่ม "🖨 พิมพ์เอกสาร A4" ได้ทันที');
             loadHistoryTable();
         }
 
@@ -1543,7 +1608,28 @@
             document.getElementById('requesterPositionInput').value = record.requesterPosition || '';
             document.getElementById('checkerSelect').value = record.checker || '';
             document.getElementById('officerNote').value = record.officerNote || '';
+            if (document.getElementById('otherExpenseDetail')) {
+                document.getElementById('otherExpenseDetail').value = record.otherExpenseDetail || '';
+            }
 
+            // คืนค่าประเภทค่าใช้จ่ายและเอกสารที่เลือกไว้ในรายการประวัตินั้น
+            document.querySelectorAll('input[name="expenseType"]').forEach(cb => {
+                cb.checked = Array.isArray(record.selectedExpIds) ? record.selectedExpIds.includes(cb.value) : false;
+            });
+            updateChecklists();
+
+            if (Array.isArray(record.checkedDocIds)) {
+                record.checkedDocIds.forEach(docId => {
+                    const docCb = document.getElementById(docId);
+                    if (docCb) {
+                        docCb.checked = true;
+                        toggleDocRow(docId);
+                    }
+                });
+            }
+
+            isCurrentRecordSaved = true;
+            updatePrintButtonUI();
             generatePrintView();
         }
 
@@ -1594,6 +1680,9 @@
             document.getElementById('requesterInput').value = '';
             document.getElementById('requesterPositionInput').value = '';
             document.getElementById('officerNote').value = '';
+            if (document.getElementById('otherExpenseDetail')) {
+                document.getElementById('otherExpenseDetail').value = '';
+            }
             document.querySelectorAll('input[name="expenseType"]').forEach(cb => cb.checked = false);
             
             if (currentLoggedInUser) {
@@ -1602,6 +1691,8 @@
                 document.getElementById('checkerSelect').value = '';
             }
             updateChecklists();
+            isCurrentRecordSaved = false;
+            updatePrintButtonUI();
         }
 
         function switchTab(tab) {
@@ -1688,6 +1779,7 @@
                 }
             }
 
+            markFormDirty();
             showToast(`เพิ่มรายชื่อ ${newName} (ตำแหน่ง: ${newPos || '-'}) และบันทึกลง ชีต2 เรียบร้อยแล้ว`);
             updatePrintFooter();
         }

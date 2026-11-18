@@ -1316,15 +1316,11 @@
                 }
 
                 let docsRowsHtml = '';
-                expObj.docs.forEach((doc, idx) => {
-                    const docCheckbox = document.getElementById(`${expObj.id}_doc_${idx}`);
-                    const isChecked = docCheckbox ? docCheckbox.checked : false;
+                expObj.docs.forEach((doc) => {
                     docsRowsHtml += `
                         <tr style="border-bottom: 1px solid #e2e8f0;">
                             <td style="padding: 8px; text-align: center; width: 45px;">
-                                <div style="width: 16px; height: 16px; border: 1.5px solid #334155; border-radius: 3px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                                    ${isChecked ? '✓' : ''}
-                                </div>
+                                <div style="width: 16px; height: 16px; border: 1.5px solid #334155; border-radius: 3px; margin: 0 auto;"></div>
                             </td>
                             <td style="padding: 8px; font-weight: 600; color: #1e293b; vertical-align: top;">${doc.name}</td>
                             <td style="padding: 8px; font-size: 11px; color: #475569; vertical-align: top; white-space: pre-line;">${doc.desc}</td>
